@@ -1,0 +1,6 @@
+package contestio
+
+// Int
+
+// Float
+

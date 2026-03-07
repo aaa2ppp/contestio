@@ -1,0 +1,10 @@
+.
+!.gitignore
+*.exe
+*.bin
+*.pprof
+*.out
+/tmp
+/bak
+/bak[0-9]
+/bin
