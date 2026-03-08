@@ -117,8 +117,8 @@ func Test_scanSliceLn(t *testing.T) {
 		},
 		{
 			"various spaces",
-			"1\t\r\n2",
-			[]string{"1"},
+			"1\t\r 2\n",
+			[]string{"1", "2"},
 			nil,
 		},
 		{
@@ -146,10 +146,10 @@ func Test_scanSliceLn(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
 			out, gotErr := scanSliceLn(br, func(b []byte) (string, error) { return string(b), nil }, nil)
 			if !errors.Is(gotErr, tt.wantErr) {
-				t.Errorf("scanSlice() error = %v, want %v", gotErr, tt.wantErr)
+				t.Errorf("scanSliceLn() error = %v, want %v", gotErr, tt.wantErr)
 			}
 			if !reflect.DeepEqual(out, tt.want) {
-				t.Errorf("scanSlice() out = %q, want %q", out, tt.want)
+				t.Errorf("scanSliceLn() out = %q, want %q", out, tt.want)
 			}
 		})
 	}
@@ -224,13 +224,101 @@ func Test_scanVars(t *testing.T) {
 			}
 			gotN, gotErr := scanVars(br, func(b []byte) (string, error) { return string(b), nil }, vars...)
 			if !errors.Is(gotErr, tt.wantErr) {
-				t.Errorf("scanSlice() error = %v, want %v", gotErr, tt.wantErr)
+				t.Errorf("scanVars() error = %v, want %v", gotErr, tt.wantErr)
 			}
 			if gotN != len(tt.want) {
-				t.Errorf("scanSlice() n = %v, want %v", gotN, len(tt.want))
+				t.Errorf("scanVars() n = %v, want %v", gotN, len(tt.want))
 			}
 			if !reflect.DeepEqual(out[:min(gotN, len(out))], tt.want) {
-				t.Errorf("scanSlice() out = %q, want %q", out, tt.want)
+				t.Errorf("scanVars() out = %q, want %q", out, tt.want)
+			}
+		})
+	}
+}
+
+func Test_scanVarsLn(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		n       int
+		want    []string
+		wantErr error
+	}{
+		{
+			"simple",
+			"1 2 3 4 5\n",
+			5,
+			[]string{"1", "2", "3", "4", "5"},
+			nil,
+		},
+		{
+			"simple sasha",
+			"Shla Sasha po shosse i sosala sushku.\n",
+			7,
+			[]string{"Shla", "Sasha", "po", "shosse", "i", "sosala", "sushku."},
+			nil,
+		},
+		{
+			"multiple spaces",
+			"1  2   3    4     5\n",
+			5,
+			[]string{"1", "2", "3", "4", "5"},
+			nil,
+		},
+		{
+			"various spaces",
+			"1\t\r 2\n",
+			2,
+			[]string{"1", "2"},
+			nil,
+		},
+		{
+			"leading spaces",
+			"   1\n",
+			1,
+			[]string{"1"},
+			nil,
+		},
+		{
+			"final spaces",
+			"1   \n",
+			1,
+			[]string{"1"},
+			nil,
+		},
+		{
+			"too few elements",
+			"1 2 3 4 5\n 6",
+			6,
+			[]string{"1", "2", "3", "4", "5"},
+			EOL,
+		},
+		{
+			"no lf",
+			"1 2 3 4 5",
+			5,
+			[]string{"1", "2", "3", "4", "5"},
+			io.EOF,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			br := NewReader(strings.NewReader(tt.input))
+			out := make([]string, tt.n)
+			vars := make([]*string, tt.n)
+			for i := range out {
+				vars[i] = &out[i]
+			}
+			gotN, gotErr := scanVarsLn(br, func(b []byte) (string, error) { return string(b), nil }, vars...)
+			if !errors.Is(gotErr, tt.wantErr) {
+				t.Errorf("scanVarsLn() error = %v, want %v", gotErr, tt.wantErr)
+			}
+			if gotN != len(tt.want) {
+				t.Errorf("scanVarsLn() n = %v, want %v", gotN, len(tt.want))
+			}
+			if !reflect.DeepEqual(out[:min(gotN, len(out))], tt.want) {
+				t.Errorf("scanVarsLn() out = %q, want %q", out, tt.want)
 			}
 		})
 	}

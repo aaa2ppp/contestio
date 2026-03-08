@@ -64,13 +64,13 @@ func scanSliceLn[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
 	}
 }
 
-func scanVars[T any](br *Reader, parse parseFunc[T], a ...*T) (int, error) {
+func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...*T) (int, error) {
 	var eof bool
 	for i := range a {
 		if eof {
 			return i, io.EOF
 		}
-		if err := skipSpace(br, false); err != nil {
+		if err := skipSpace(br, stopAtEol); err != nil {
 			return i, err
 		}
 		token, err := nextToken(br)
@@ -92,8 +92,12 @@ func scanVars[T any](br *Reader, parse parseFunc[T], a ...*T) (int, error) {
 	return len(a), nil
 }
 
+func scanVars[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
+	return scanVarsCommon(br, false, parser, a...)
+}
+
 func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
-	n, err := scanVars(br, parser, a...)
+	n, err := scanVarsCommon(br, true, parser, a...)
 	if err != nil {
 		return n, err
 	}
