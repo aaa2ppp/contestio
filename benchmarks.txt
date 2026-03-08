@@ -1,0 +1,31 @@
+goos: windows
+goarch: amd64
+pkg: github.com/aaa2ppp/contestio
+cpu: Intel(R) Core(TM) i3-7100 CPU @ 3.90GHz
+Benchmark_parseInt/parseIntStd-4         	      30	  40222123 ns/op	       0 B/op	       0 allocs/op
+Benchmark_parseInt/parseIntBase-4        	      48	  23826235 ns/op	       0 B/op	       0 allocs/op
+Benchmark_parseInt/parseIntFast-4        	      54	  22611215 ns/op	       0 B/op	       0 allocs/op
+Benchmark_printInt/fmt.Fprintf-4         	       9	 112271589 ns/op	 7865210 B/op	  983055 allocs/op
+Benchmark_printInt/AppendInt-4           	      30	  39616483 ns/op	  101976 B/op	    3958 allocs/op
+Benchmark_printInt/AppendInt_scr-4       	      28	  40052921 ns/op	      32 B/op	       1 allocs/op
+Benchmark_printInt/printSlice-4          	      27	  42295759 ns/op	       0 B/op	       0 allocs/op
+Benchmark_printInt/printVals_loop-4      	      21	  54104381 ns/op	       0 B/op	       0 allocs/op
+Benchmark_printFloat/fmt.Fprintf-4       	       6	 201612250 ns/op	 8389286 B/op	 1048579 allocs/op
+Benchmark_printFloat/AppendFloat-4       	       9	 112370100 ns/op	  183376 B/op	    7923 allocs/op
+Benchmark_printFloat/AppendFloat_scr-4   	      10	 111074580 ns/op	      32 B/op	       1 allocs/op
+Benchmark_printFloat/printSlice-4        	       9	 114770200 ns/op	       0 B/op	       0 allocs/op
+Benchmark_printFloat/printVals_loop-4    	       9	 123651256 ns/op	       0 B/op	       0 allocs/op
+Benchmark_scanInt/fmt.Fscan-4            	       2	 562536350 ns/op	19762624 B/op	 1045953 allocs/op
+Benchmark_scanInt/ReadString-4           	      12	  91297500 ns/op	55773160 B/op	    4733 allocs/op
+Benchmark_scanInt/WordScanner-4          	       8	 135377050 ns/op	       0 B/op	       0 allocs/op
+Benchmark_scanInt/scanSlice-4            	      18	  63359800 ns/op	       0 B/op	       0 allocs/op
+Benchmark_scanInt/scanSliceLn-4          	      18	  63750922 ns/op	       0 B/op	       0 allocs/op
+Benchmark_scanInt/scanVars_loop-4        	      16	  67216831 ns/op	       0 B/op	       0 allocs/op
+Benchmark_scanFloat/fmt.Fscan-4          	       2	 759719350 ns/op	24797432 B/op	 1048580 allocs/op
+Benchmark_scanFloat/ReadString-4         	       7	 153689286 ns/op	61077480 B/op	    5363 allocs/op
+Benchmark_scanFloat/WordScanner-4        	       6	 196580300 ns/op	       0 B/op	       0 allocs/op
+Benchmark_scanFloat/scanSlice-4          	       8	 132061650 ns/op	       0 B/op	       0 allocs/op
+Benchmark_scanFloat/scanSliceLn-4        	       8	 132428288 ns/op	       0 B/op	       0 allocs/op
+Benchmark_scanFloat/scanVars_loop-4      	       8	 138276725 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/aaa2ppp/contestio	37.039s
