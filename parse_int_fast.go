@@ -2,4 +2,4 @@
 
 package contestio
 
-func parseInt[T Int](token []byte) (T, error) { return parseIntBase[T](token) }
+func parseInt[T Int](token []byte) (T, error) { return parseIntFast[T](token) }
