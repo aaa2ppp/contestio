@@ -101,5 +101,9 @@ func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int
 	if err != nil {
 		return n, err
 	}
-	return n, skipToNewLine(br)
+	err = skipSpace(br, true)
+	if err == EOL {
+		return n, nil
+	}
+	return n, err
 }

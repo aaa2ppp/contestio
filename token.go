@@ -49,7 +49,7 @@ func isSpace(c byte) bool { return spaceTab[c] }
 
 var EOL = errors.New("EOL")
 
-func skipSpace(br *Reader, stopAtNewLine bool) error {
+func skipSpace(br *Reader, stopAtEol bool) error {
 	var buf []byte
 	var err error
 	fast := br.Buffered() > 0
@@ -67,7 +67,7 @@ func skipSpace(br *Reader, stopAtNewLine bool) error {
 		}
 		buf = buf[:br.Buffered()]
 		for i, c := range buf {
-			if stopAtNewLine && c == '\n' {
+			if stopAtEol && c == '\n' {
 				_, _ = br.Discard(i + 1)
 				return EOL
 			}
