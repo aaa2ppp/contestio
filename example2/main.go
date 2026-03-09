@@ -18,6 +18,8 @@ import (
 // Выведите квадраты всех элементов массива A разделенные пробелами в том же порядке в котором
 // они заданы.
 
+var debug bool
+
 func solve(a []int32) []int64 {
 	ans := make([]int64, len(a))
 	for i := range a {
@@ -37,7 +39,7 @@ func run(in io.Reader, out io.Writer) error {
 	var ans Ints[int64]
 
 	if _, err := ScanIntLn(br, &n); err != nil {
-		// Ошибка возвращается только для проверки ввода/вывода.
+		// Ошибка возвращается только для проверки поведения ScanXXX.
 		// В алгоритмичиских задачах ввод нам гарантируют, по этому на ошибках ввода
 		// удобнее падать log.Fatal(err). Если падаем на примерах - значит не понял условие.
 		return fmt.Errorf("scan n: %v", err)
@@ -70,25 +72,13 @@ func run(in io.Reader, out io.Writer) error {
 	ans = solve(a)
 
 	if i, err := PrintSliceLn(bw, ans); err != nil {
-		// Ошибка возвращается только для проверки ввода/вывода.
+		// Ошибка возвращается только для проверки поведения PrintXXX.
 		// В алгоритмических задачах обрабатывать эту ошибку не имеет смысла.
 		// 99.9% это проблемы io os.
 		return fmt.Errorf("print ans[%d]: %v", i, err)
 	}
 
 	return nil
-}
-
-// Устанавливает флаг debug режима, если определена переменная окружения DEBUG.
-//
-// Пример использования (bash) (значение может быть любым и отсутствовать, как в примере):
-//
-//	$ DEBUG= go run main.go
-var _, debug = os.LookupEnv("DEBUG")
-
-func init() {
-	// Кастомизируем вывод логгера (дата время нас не интересует, а строчка в коде - важно)
-	log.SetFlags(log.Llongfile)
 }
 
 func main() {

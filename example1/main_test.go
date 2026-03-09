@@ -8,6 +8,10 @@ import (
 )
 
 func Test_run(t *testing.T) {
+	// NOTE: Сейчас здесь мы больше тестируем поведение функций ScanXXX/PrintXXX.
+	// В реальных задачах корректный ввод нам гарантируют. Удобнее сразу падать
+	// на любых ошибка ввода/вода, а здесь проверять только решение примеров.
+
 	type args struct {
 		r io.Reader
 	}
@@ -84,8 +88,10 @@ func Test_run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer func(f bool) { debug = f }(debug)
-			debug = tt.debug
+			if testing.Verbose() {
+				defer func(f bool) { debug = f }(debug)
+				debug = tt.debug
+			}
 
 			w := &bytes.Buffer{}
 			if err := run(tt.args.r, w); (err != nil) != tt.wantErr {
