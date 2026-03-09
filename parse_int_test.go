@@ -325,6 +325,15 @@ func Benchmark_parseInt(b *testing.B) {
 	input := makeIntsInput(rand, nums, 1)
 	tokens := bytes.Fields(input)
 
+	b.Run("strconv.Atoi", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, token := range tokens {
+				v, _ := strconv.Atoi(unsafeString(token))
+				parseIntRes = int64(v)
+			}
+		}
+	})
+
 	b.Run("parseIntStd", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, token := range tokens {
