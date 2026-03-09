@@ -1,7 +1,6 @@
 package contestio
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 	"unsafe"
@@ -34,7 +33,7 @@ type IntError struct {
 	Err error
 }
 
-func (e *IntError) Error() string { return fmt.Sprintf("parseInt: %q: %v", e.Num, e.Err) }
+func (e *IntError) Error() string { return "parseInt: " + strconv.Quote(e.Num) + ": " + e.Err.Error() }
 func (e *IntError) Unwrap() error { return e.Err }
 
 func parseIntBase[T Int](token []byte) (T, error) {
