@@ -37,8 +37,10 @@ test:
 	@echo OK
 
 bench:
-	mkdir $(TMP_DIR)
-	go test -bench '(parseInt$$|scanInt|scanFloat|printInt|printFloat)' -benchmem $(TEST_FLAGS) . | tee $(TMP_DIR)/benchmarks.txt
+	@mkdir -p $(TMP_DIR)
+	go test -bench '(parseInt$$|scanInt|scanFloat|printInt|printFloat)' -benchmem $(TEST_FLAGS) . | tee $(TMP_DIR)/$(DST).bench
+	@echo "Benchmarks saved to $(TMP_DIR)/$(DST).bench"
+
 
 # Шаблонное правило для сборки любого бинарника
 $(BIN_DIR)/%: FORCE
