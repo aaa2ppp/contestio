@@ -80,7 +80,7 @@ func Test_run(t *testing.T) {
 		},
 		{
 			"bad input input",
-			args{strings.NewReader("1 2 3 abc 5 6")},
+			args{strings.NewReader("6\n1 2 3 abc 5 6")},
 			"",
 			true,
 			true,
