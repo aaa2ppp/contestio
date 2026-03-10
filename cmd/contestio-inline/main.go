@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"cmp"
 	"flag"
@@ -23,105 +22,115 @@ import (
 
 const libPath = "github.com/aaa2ppp/contestio"
 
-func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [options] [filename]\n", filepath.Base(os.Args[0]))
-	fmt.Fprintf(os.Stderr, "Options:\n")
-	fmt.Fprintf(os.Stderr, "  -clear    удалить встроенный код библиотеки\n")
-	fmt.Fprintf(os.Stderr, "  -h        показать эту справку\n")
-	fmt.Fprintf(os.Stderr, "\nfilename - файл, в который будет встроен код (по умолчанию main.go).\n")
-	os.Exit(2)
+func usage(fs *flag.FlagSet) func() {
+	return func() {
+		fmt.Fprintf(fs.Output(), "Usage: %s [options] [filename]\n", fs.Name())
+		fmt.Fprintf(fs.Output(), "Options:\n")
+		fmt.Fprintf(fs.Output(), "  -clear    удалить встроенный код библиотеки\n")
+		fmt.Fprintf(fs.Output(), "  -tags     теги сборки (см. go help build)\n")
+		fmt.Fprintf(fs.Output(), "  -h        показать эту справку\n")
+		fmt.Fprintf(fs.Output(), "\nfilename - файл, в который будет встроен код (по умолчанию main.go).\n")
+		os.Exit(2)
+	}
 }
 
 func main() {
+	if err := run(os.Args[1:]); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(args []string) error {
 	log.SetFlags(0)
 
+	fs := flag.NewFlagSet("contestio-inline", flag.ContinueOnError)
 	var clear bool
-	flag.BoolVar(&clear, "clear", false, "удалить встроенный код библиотеки")
-	flag.Usage = usage
-	flag.Parse()
+	var buildTags string
 
-	args := flag.Args()
+	fs.BoolVar(&clear, "clear", false, "удалить встроенный код библиотеки")
+	fs.StringVar(&buildTags, "tags", "", "теги сборки (см. go help build)")
+	fs.Usage = usage(fs)
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	posArgs := fs.Args()
 	fileName := "main.go"
-	if len(args) > 0 {
-		fileName = args[0]
+	if len(posArgs) > 0 {
+		fileName = posArgs[0]
 	}
 	absFilePath, err := filepath.Abs(fileName)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	solutionDir := filepath.Dir(absFilePath)
 
 	if clear {
 		if err := clearInliningFromFile(absFilePath, libPath); err != nil {
 			log.Fatal(err)
 		}
 		log.Printf("Код библиотеки удалён из %s\n", fileName)
-		return
+		return nil
 	}
 
 	// Этап 1: найти все экспортируемые объекты contestio, используемые в main.go
-	pkg, err := loadMainPackage(absFilePath)
+	pkg, err := loadPackage("file="+absFilePath, buildTags, solutionDir)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	rootNames := findRootObjectsInMain(pkg, libPath)
 	if len(rootNames) == 0 {
-		log.Fatalf("в файле %s не найдено обращений к экспортируемым объектам %s\n", fileName, libPath)
+		return fmt.Errorf("В файле %s не найдено обращений к объектам пакета %s", fileName, libPath)
 	}
 
 	// Этап 2: загрузить пакет contestio, построить граф зависимостей и собрать все достижимые объекты
-	pkg, err = loadLibPackage(libPath)
+	pkg, err = loadPackage(libPath, buildTags, solutionDir)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	nodeSet := extractDependencies(pkg, rootNames)
 	if nodeSet == nil {
-		log.Fatalf("ни один из корневых объектов в пакете %s не найден: %v\n", libPath, err)
+		return fmt.Errorf("В пакете %s не найдено ни одиного корневого объекта: %v", libPath, err)
 	}
 
 	// Этап 3: инлайним код найденных объектов в main.go
 	if err := inlineNodeSetToFile(absFilePath, pkg, nodeSet); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	log.Printf("Код библиотеки успешно встроен в %s\n", fileName)
+
+	return nil
 }
 
 func inlineNodeSetToFile(fileName string, pkg *packages.Package, nodeSet map[ast.Node]bool) error {
-	fileInfo, err := os.Stat(fileName)
+	input, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
 	}
-	file, err := os.Open(fileName)
+
+	input, err = normalizeImports(input, fileName)
 	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// создаем временный файл в том же каталоге
-	tmpFile, err := os.CreateTemp(filepath.Dir(fileName), filepath.Base(fileName)+"-*")
-	if err != nil {
-		return err
-	}
-	defer func(fname string) {
-		tmpFile.Close()
-		os.Remove(fname)
-	}(tmpFile.Name())
-
-	if err := os.Chmod(tmpFile.Name(), fileInfo.Mode()); err != nil {
-		return err
+		return fmt.Errorf("normalize imports: %v", err)
 	}
 
-	br := bufio.NewReader(file)
-	bw := bufio.NewWriter(tmpFile)
-	defer bw.Flush()
+	openTagPos, closeTagPos := findInlineTags(input, pkg.PkgPath)
+	if openTagPos != -1 || closeTagPos != -1 {
+		return fmt.Errorf("File %q already contains open or close inline tag", fileName)
+	}
+
+	var outbuf bytes.Buffer
 
 	// копируем файл исключая импрор пакета
 	var isImport bool
 	var foundImport bool
-	for {
-		s, err := br.ReadString('\n')
-		if err != nil && err != io.EOF {
-			return err
+	for pos := 0; pos < len(input); {
+		end := bytes.IndexByte(input[pos:], '\n') + pos + 1
+		if end == pos {
+			end = len(input)
 		}
+		s := string(input[pos:end])
+		pos = end
 
 		// TODO: это хрупко
 		t := strings.TrimSpace(s)
@@ -131,218 +140,152 @@ func inlineNodeSetToFile(fileName string, pkg *packages.Package, nodeSet map[ast
 		if isImport && strings.Contains(s, pkg.PkgPath) {
 			foundImport = true
 		} else {
-			bw.WriteString(s)
+			outbuf.WriteString(s)
 		}
 		if isImport && (strings.HasSuffix(t, ")") ||
 			strings.HasPrefix(t, "import ") && !strings.HasSuffix(t, "(")) {
 			isImport = false
 		}
-
-		if err == io.EOF {
-			break
-		}
 	}
 
 	if !foundImport {
-		return fmt.Errorf("not found import %s in file %s", pkg.PkgPath, fileName)
-	}
-	if err := file.Close(); err != nil {
-		return err
+		return fmt.Errorf("Not found import %q in file %q", pkg.PkgPath, fileName)
 	}
 
 	// дописываем узлы пакета
-	if err := printNodeSet(bw, pkg, nodeSet); err != nil {
+	if err := printNodeSet(&outbuf, pkg, nodeSet); err != nil {
 		return fmt.Errorf("print nodes: %v", err)
 	}
-	if err := bw.Flush(); err != nil {
-		return err
-	}
-	if err := tmpFile.Close(); err != nil {
-		return err
-	}
 
-	if err := fixImports(tmpFile.Name()); err != nil {
-		return err
-	}
+	return rewriteFileWithBackup(fileName, outbuf.Bytes())
+}
 
-	// делаем замену файла с бекапом
-	if err := os.Rename(fileName, fileName+"~"); err != nil {
-		return fmt.Errorf("can't backup %q file: %w", fileName, err)
+func findLinePrefix(buf []byte, prefix string) int {
+	if bytes.HasPrefix(buf, []byte(prefix)) {
+		return 0
 	}
-	if err := os.Rename(tmpFile.Name(), fileName); err != nil {
-		os.Rename(fileName+"~", fileName)
-		return fmt.Errorf("can't rename %q to %q", tmpFile.Name(), fileName)
+	pos := bytes.Index(buf, []byte("\n"+prefix))
+	if pos == -1 {
+		return -1
 	}
+	return pos + 1
+}
 
-	return nil
+func findInlineTags(buf []byte, pkgPath string) (int, int) {
+	openPos := findLinePrefix(buf, "// -- inline:"+pkgPath+" --")
+	closePos := findLinePrefix(buf, "// -- /inline:"+pkgPath+" --")
+	return openPos, closePos
 }
 
 func clearInliningFromFile(fileName string, pkgPath string) error {
-	fileInfo, err := os.Stat(fileName)
-	if err != nil {
-		return err
-	}
-	buf, err := os.ReadFile(fileName)
+	input, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
 	}
 
-	var packagePos int
-	if !bytes.HasPrefix(buf, []byte("package ")) {
-		packagePos := bytes.Index(buf, []byte("\npackage "))
-		if packagePos == -1 {
-			return fmt.Errorf("not fond package in file %q", fileName)
-		}
-		packagePos++
+	packagePos := findLinePrefix(input, "package ")
+	if packagePos == -1 {
+		return fmt.Errorf("Not fond package in file %q", fileName)
 	}
 
-	importPos := bytes.Index(buf, []byte("\nimport "))
-	if importPos != -1 && packagePos > importPos {
-		return fmt.Errorf("not fond correct package/import in file %q", fileName)
-	}
-	importPos++
-
-	openTag := "\n// -- inline:" + pkgPath + " --"
-	openTagPos := bytes.Index(buf, []byte(openTag))
-	if openTagPos == -1 || packagePos > openTagPos || importPos > openTagPos {
-		return fmt.Errorf("not fond correct open tags %q position (%d) in file %q", openTag, openTagPos, fileName)
-	}
-	openTagPos++
-
-	closeTag := "\n// -- /inline:" + pkgPath + " --"
-	closeTagPos := bytes.Index(buf, []byte(closeTag))
-	if closeTagPos == -1 || openTagPos > closeTagPos {
-		return fmt.Errorf("not fond correct open/close tags in file %q", fileName)
-	}
-	closeTagPos++
-
-	// создаем временный файл в том же каталоге
-	tmpFile, err := os.CreateTemp(filepath.Dir(fileName), filepath.Base(fileName)+"-*")
-	if err != nil {
-		return err
-	}
-	defer func(fname string) {
-		tmpFile.Close()
-		os.Remove(fname)
-	}(tmpFile.Name())
-
-	if err := os.Chmod(tmpFile.Name(), fileInfo.Mode()); err != nil {
-		return err
+	importPos := findLinePrefix(input, "import ")
+	if packagePos > importPos {
+		return fmt.Errorf("Not fond correct import in file %q", fileName)
 	}
 
-	bw := bufio.NewWriter(tmpFile)
-	defer bw.Flush()
+	openTagPos, closeTagPos := findInlineTags(input, pkgPath)
+	if packagePos > openTagPos || importPos > openTagPos || openTagPos > closeTagPos {
+		return fmt.Errorf("Not found correct open and close inline tags in file %q", fileName)
+	}
 
+	var outbuf bytes.Buffer
 	var end int
 
 	if importPos == -1 {
 		// нет ни одного импорта - всталяем отдельной строкой сразу за package
-		end = bytes.IndexByte(buf[packagePos:], '\n') + packagePos + 1
-		bw.Write(buf[:end])
-		fmt.Fprintf(bw, "\nimport %q\n", pkgPath)
+		end = bytes.IndexByte(input[packagePos:], '\n') + packagePos + 1
+		outbuf.Write(input[:end])
+		fmt.Fprintf(&outbuf, "\nimport %q\n", pkgPath)
 	} else {
-		end = bytes.IndexByte(buf[importPos:], '\n') + importPos + 1
-		bw.Write(buf[:end])
+		end = bytes.IndexByte(input[importPos:], '\n') + importPos + 1
+		outbuf.Write(input[:end])
 
-		t := bytes.TrimSpace(buf[importPos:end])
+		t := bytes.TrimSpace(input[importPos:end])
 		if bytes.HasSuffix(t, []byte("(")) {
 			// втавляем перевой строкой в блок импорта
-			fmt.Fprintf(bw, "\t. %q\n", pkgPath)
+			fmt.Fprintf(&outbuf, "\t. %q\n", pkgPath)
 		} else {
 			// всталяем отдельной строкой
-			fmt.Fprintf(bw, "\nimport . %q\n", pkgPath)
+			fmt.Fprintf(&outbuf, "\nimport . %q\n", pkgPath)
 		}
 	}
 
 	// пропускаем все, что между строчками тегов, включая строчки тегов
-	bw.Write(buf[end:openTagPos])
-	end = bytes.IndexByte(buf[closeTagPos:], '\n') + closeTagPos + 1
+	outbuf.Write(input[end:openTagPos])
+	end = bytes.IndexByte(input[closeTagPos:], '\n') + closeTagPos + 1
 	if end > closeTagPos {
-		bw.Write(buf[end:])
+		outbuf.Write(input[end:])
 	}
 
-	if err := bw.Flush(); err != nil {
-		return err
-	}
-	if err := tmpFile.Close(); err != nil {
-		return err
-	}
+	return rewriteFileWithBackup(fileName, outbuf.Bytes())
+}
 
-	if err := fixImports(tmpFile.Name()); err != nil {
+func rewriteFileWithBackup(fileName string, output []byte) error {
+	fileInfo, err := os.Stat(fileName)
+	if err != nil {
 		return err
 	}
 
-	// делаем замену файла с бекапом
+	output, err = normalizeImports(output, fileName)
+	if err != nil {
+		return fmt.Errorf("final normalize imports: %v", err)
+	}
+
 	if err := os.Rename(fileName, fileName+"~"); err != nil {
-		return fmt.Errorf("can't backup %q file: %w", fileName, err)
+		return fmt.Errorf("Can't backup %q file: %w", fileName, err)
 	}
-	if err := os.Rename(tmpFile.Name(), fileName); err != nil {
+
+	if err := os.WriteFile(fileName, output, fileInfo.Mode()); err != nil {
 		os.Rename(fileName+"~", fileName)
-		return fmt.Errorf("can't rename %q to %q", tmpFile.Name(), fileName)
+		return err
 	}
 
 	return nil
 }
 
-func fixImports(fileName string) error {
-	src, err := os.ReadFile(fileName)
-	if err != nil {
-		return err
-	}
-
-	res, err := imports.Process(fileName, src, nil)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(fileName, res, 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func normalizeImports(src []byte, filename string) ([]byte, error) {
+	return imports.Process(filename, src, nil)
 }
 
 // ---------------------------------------------------------------------
 // Загрузка пакетов
 // ---------------------------------------------------------------------
 
-func loadMainPackage(filePath string) (*packages.Package, error) {
+// loadPackage загружает пакет по заданному шаблону (например, "file=main.go" или "github.com/aaa2ppp/contestio")
+// в контексте директории dir с указанными тегами сборки.
+func loadPackage(pattern, buildTags, dir string) (*packages.Package, error) {
 	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
-		Dir:  filepath.Dir(filePath),
+		Mode:       packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
+		Dir:        dir,
+		BuildFlags: []string{"-tags=" + buildTags},
 	}
-	pkgs, err := packages.Load(cfg, "file="+filePath)
+	pkgs, err := packages.Load(cfg, pattern)
 	if err != nil {
-		return nil, fmt.Errorf("загрузка файла %s: %v", filePath, err)
+		return nil, fmt.Errorf("загрузка %s: %v", pattern, err)
 	}
 	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("пакет %s не найден", filePath)
+		return nil, fmt.Errorf("пакет %s не найден", pattern)
 	}
 	return pkgs[0], nil
-}
-
-func loadLibPackage(pkgPath string) (*packages.Package, error) {
-	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
-	}
-	pkgs, err := packages.Load(cfg, pkgPath)
-	if err != nil {
-		return nil, fmt.Errorf("загрузка пакета %s: %v", pkgPath, err)
-	}
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("пакет %s не найден", pkgPath)
-	}
-	return pkgs[0], err
 }
 
 // ---------------------------------------------------------------------
 // Вывод собранных узлов
 // ---------------------------------------------------------------------
 
-func printPkgBoundary(w io.Writer, name string, open bool) error {
+func printInlineTag(w io.Writer, name string, open bool) error {
 	var b bytes.Buffer
-	b.Grow(82)
+	b.Grow(83)
 	if open {
 		b.WriteString("\n// -- inline:")
 	} else {
@@ -358,8 +301,8 @@ func printPkgBoundary(w io.Writer, name string, open bool) error {
 	return err
 }
 
-func printPkgOpenBoundary(w io.Writer, name string) error  { return printPkgBoundary(w, name, true) }
-func printPkgCloseBoundary(w io.Writer, name string) error { return printPkgBoundary(w, name, false) }
+func printOpenInlineTag(w io.Writer, name string) error  { return printInlineTag(w, name, true) }
+func printCloseInlineTag(w io.Writer, name string) error { return printInlineTag(w, name, false) }
 
 func printNodeSet(w io.Writer, pkg *packages.Package, nodeSet map[ast.Node]bool) error {
 	// sort node positions
@@ -381,25 +324,54 @@ func printNodeSet(w io.Writer, pkg *packages.Package, nodeSet map[ast.Node]bool)
 		return cmp.Or(strings.Compare(a.pos.Filename, b.pos.Filename), a.pos.Offset-b.pos.Offset)
 	})
 
-	printPkgOpenBoundary(w, pkg.PkgPath)
+	printOpenInlineTag(w, pkg.PkgPath)
+	fmt.Fprintln(w)
 
-	var currentFile string
 	for _, it := range nodes {
-		baseName := filepath.Base(it.pos.Filename)
-		if baseName != currentFile {
-			currentFile = baseName
-			fmt.Fprintf(w, "\n// == %s ==\n\n", currentFile)
-		}
-		var buf bytes.Buffer
-		if err := format.Node(&buf, pkg.Fset, it.node); err != nil {
-			fmt.Fprintf(os.Stderr, "ошибка форматирования: %v\n", err)
+		removeComments(it.node)
+		if err := format.Node(w, pkg.Fset, it.node); err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка форматирования: %v\n", err)
 			continue
 		}
-		fmt.Fprintln(w, buf.String())
-		fmt.Fprintln(w) // пустая строка между объявлениями
+		fmt.Fprint(w, ";")
 	}
 
-	return printPkgCloseBoundary(w, pkg.PkgPath)
+	return printCloseInlineTag(w, pkg.PkgPath)
+}
+
+// removeComments рекурсивно удаляет все комментарии из узла AST.
+func removeComments(node ast.Node) {
+	ast.Inspect(node, func(n ast.Node) bool {
+		if n == nil {
+			return true
+		}
+		// Обнуляем комментарии у всех возможных полей
+		switch x := n.(type) {
+		case *ast.File:
+			x.Doc = nil
+			x.Comments = nil
+		case *ast.GenDecl:
+			x.Doc = nil
+		case *ast.FuncDecl:
+			x.Doc = nil
+		case *ast.TypeSpec:
+			x.Doc = nil
+			x.Comment = nil
+		case *ast.ValueSpec:
+			x.Doc = nil
+			x.Comment = nil
+		case *ast.Field:
+			x.Doc = nil
+			x.Comment = nil
+		case *ast.FieldList:
+			// поля списка обрабатываются отдельно, но у самого FieldList комментариев нет
+		case *ast.BlockStmt:
+			// у блока могут быть комментарии? в go/ast нет поля Comment у BlockStmt
+		case *ast.CommentGroup:
+			// такие узлы мы вообще не хотим видеть, но если встретились, можно игнорировать
+		}
+		return true
+	})
 }
 
 // ---------------------------------------------------------------------
