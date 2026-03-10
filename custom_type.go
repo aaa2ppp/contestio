@@ -2,7 +2,7 @@ package contestio
 
 // Пример создания кастомного типа.
 
-type Type  string
+type Type string
 
 // Вам нужно реализовать свои функции parseType и appendType.
 //
@@ -24,10 +24,3 @@ func PrintTypes(bw *Writer, op WO, a []Type) (int, error) { return printSlice(bw
 func PrintTypesLn(bw *Writer, a []Type) (int, error)      { return printSliceLn(bw, appendType, a) }
 func PrintType(bw *Writer, op WO, a ...Type) (int, error) { return printVals(bw, op, appendType, a...) }
 func PrintTypeLn(bw *Writer, a ...Type) (int, error)      { return printValsLn(bw, appendType, a...) }
-
-// Нужно только, если есть желание пользоваться обобщенными функциями ScanSlice/PrintSlice (см. sugar.go)
-type Types []Type
-func (s Types) Slice() []Type                     { return s }
-func (s Types) Parse(b []byte) (Type, error)      { return parseType(b) }
-func (s Types) AppendVal(b []byte, v Type) []byte { return append(b, v...) }
-

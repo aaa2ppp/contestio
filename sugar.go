@@ -1,3 +1,5 @@
+//go:build sugar
+
 package contestio
 
 // Обобщение ScanSlice и PrintSlice слайсов для любого типа.

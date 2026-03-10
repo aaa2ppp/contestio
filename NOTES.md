@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:006 -->
+<!-- next-note-id:007 -->
 
 ## Open Questions
 
@@ -14,6 +14,14 @@
 
   Currently all library files are in the root. Should we move them to a subdirectory to keep root clean?  
   If so, what name? I dislike plain `lib`. Perhaps just keep as is and move examples to `examples/`?
+
+- **006 [ ] What to do with Sugar? (2026-03-10)**
+
+The `ScanSlice` and `PrintSlice` functions accept `Parser` and `ValAppender` interfaces, respectively.
+This allows scanning a slice of any type using only these functions.
+The solution seems heavyweight (performance overhead) and clunky (requires implementing an interface).
+Currently, this functionality is isolated from the main codebase with the build tag `-tags=sugar`.
+Should we delete it or merge it into the main codebase?
 
 ## Ideas
 

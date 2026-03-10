@@ -18,12 +18,6 @@ func appendFloat[T Float](buf []byte, v T) []byte {
 	return strconv.AppendFloat(buf, float64(v), 'g', -1, bitSize)
 }
 
-type Floats[T Float] []T
-
-func (s Floats[T]) Slice() []T                     { return s }
-func (s Floats[T]) Parse(b []byte) (T, error)      { return parseFloat[T](b) }
-func (s Floats[T]) AppendVal(b []byte, v T) []byte { return appendFloat(b, v) }
-
 // ScanFloats считывает последовательность чисел с плавающей точкой из br в слайс a.
 // Возвращает количество успешно считанных элементов и ошибку.
 func ScanFloats[T Float](br *Reader, a []T) (int, error) { return scanSlice(br, parseFloat, a) }

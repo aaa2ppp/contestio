@@ -36,4 +36,3 @@ func NewWriterSize(w io.Writer, size int) *Writer {
 func NewWriter(w io.Writer) *Writer {
 	return NewWriterSize(w, defaultBufSize)
 }
-

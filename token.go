@@ -38,6 +38,8 @@ func nextToken(br *Reader) ([]byte, error) {
 	return buf, ErrTokenTooLong
 }
 
+var EOL = errors.New("EOL")
+
 var spaceTab = [256]bool{
 	' ':  true,
 	'\t': true,
@@ -46,8 +48,6 @@ var spaceTab = [256]bool{
 }
 
 func isSpace(c byte) bool { return spaceTab[c] }
-
-var EOL = errors.New("EOL")
 
 func skipSpace(br *Reader, stopAtEol bool) error {
 	var buf []byte

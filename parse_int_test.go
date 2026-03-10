@@ -279,42 +279,6 @@ func Test_parseIntFast(t *testing.T) {
 	})
 }
 
-func fuzz_parseInt(f *testing.F, parseInt func([]byte) (int64, error)) {
-
-	f.Fuzz(func(t *testing.T, input []byte) {
-		// Сравниваем поведение с strconv для валидных десятичных строк
-		// (игнорируем случаи, где strconv ведёт себя иначе, например '+' для unsigned)
-
-		// Быстрая проверка: только цифры и опциональный знак в начале
-		trimmed := bytes.TrimLeft(input, "+-")
-		for _, b := range trimmed {
-			if b < '0' || b > '9' {
-				// Наш парсер должен вернуть ошибку
-				_, err := parseInt(input)
-				if err == nil {
-					t.Errorf("expected error for invalid input %q", input)
-				}
-				return
-			}
-		}
-
-		// Если строка валидна — сверяем результат со strconv
-		// (для signed типов)
-		if len(input) > 0 && (input[0] == '-' || input[0] == '+') {
-			// strconv.ParseInt принимает '+', ваш парсер для signed — тоже
-			want, err := strconv.ParseInt(string(input), 10, 64)
-			got, gotErr := parseInt(input)
-
-			if (err != nil) != (gotErr != nil) {
-				t.Errorf("input %q: error mismatch: strconv=%v, parseInt=%v", input, err, gotErr)
-			}
-			if err == nil && got != want {
-				t.Errorf("input %q: got %d, want %d", input, got, want)
-			}
-		}
-	})
-}
-
 var parseIntRes int64
 
 func Benchmark_parseInt(b *testing.B) {

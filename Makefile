@@ -3,7 +3,7 @@ TMP_DIR ?= ./tmp
 
 GOEXE := $(shell go env GOEXE)
 TEST_FLAGS ?=
-TEST_FLAGS := $(TEST_FLAGS) -tags=dev
+TEST_FLAGS := $(TEST_FLAGS) -tags=dev,sugar
 
 MERGE_FILES ?= Makefile go.mod go.sum *.go *.sh *.md *.txt
 

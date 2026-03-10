@@ -184,12 +184,6 @@ func appendInt[T Int](buf []byte, v T) []byte {
 	}
 }
 
-type Ints[T Int] []T
-
-func (s Ints[T]) Slice() []T                     { return s }
-func (s Ints[T]) Parse(b []byte) (T, error)      { return parseInt[T](b) }
-func (s Ints[T]) AppendVal(b []byte, v T) []byte { return appendInt(b, v) }
-
 // ScanInts считывает последовательность целых чисел из br в слайс a.
 // Возвращает количество успешно считанных элементов и первую ошибку.
 func ScanInts[T Int](br *Reader, a []T) (int, error) { return scanSlice(br, parseInt, a) }
