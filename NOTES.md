@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:007 -->
+<!-- next-note-id:009 -->
 
 ## Open Questions
 
@@ -23,6 +23,20 @@ The solution seems heavyweight (performance overhead) and clunky (requires imple
 Currently, this functionality is isolated from the main codebase with the build tag `-tags=sugar`.
 Should we delete it or merge it into the main codebase?
 
+- **008 [ ] Should nextToken/scanXxx advance position on read/parse errors? (2026-03-11)**
+
+  Currently, `nextToken` always discards the bytes it has consumed, even if it returns an error (e.g., `ErrTokenTooLong` or `io.EOF` after a partial token). Similarly, `scanSlice`/`scanVars` advance the reader past the token that caused a parse error before returning the error. This behavior is undocumented.
+
+  **Pros of current approach:**
+  - Simple and consistent: after an error, the stream is left at the next possible position.
+  - Useful for resuming after a recoverable error (e.g., skipping malformed input).
+
+  **Cons:**
+  - If the caller wants to inspect or retry the erroneous token, the data is lost.
+  - Error recovery becomes non-trivial because the state is already mutated.
+
+  Should we change the behavior to **not advance** on parse errors (i.e., leave the reader pointing at the beginning of the offending token)? Or should we keep the current behavior but document it clearly? This decision affects all scanning functions and the `nextToken` helper.
+
 ## Ideas
 
 ## Plans
@@ -44,3 +58,12 @@ Should we delete it or merge it into the main codebase?
 - **003 [ ] Translate all inline documentation to English (2026-03-09)**
 
 ## Made
+
+- **007 [+] Adjust EOF handling in scanXxxLn functions (2026-03-11) (made:2026-03-11)**
+
+  Currently, `scanSliceLn` and `scanVarsLn` may return `io.EOF` after successfully reading the last line if the input lacks a trailing newline. This forces users to explicitly check for `io.EOF` even after processing data. Change the behavior:
+    - `scanSliceLn`: returns `nil` error if at least one token was read, even if EOF is encountered afterwards.
+    - `scanVarsLn`: returns `nil` after reading all requested variables, ignore `io.EOF` when skipping the final spaces.
+
+  This makes the API more convenient for typical contest usage, where EOF after data is not an error.
+

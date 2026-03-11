@@ -1,6 +1,7 @@
 package contestio
 
 import (
+	"errors"
 	"io"
 )
 
@@ -36,12 +37,22 @@ func scanSlice[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
 
 func scanSliceLn[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
 	var eof bool
+	n := 0
 	for {
 		if eof {
-			return a, io.EOF
+			if n == 0 {
+				return a, io.EOF
+			}
+			return a, nil
 		}
 		if err := skipSpace(br, true); err != nil {
 			if err == EOL {
+				return a, nil
+			}
+			if err == io.EOF {
+				if n == 0 {
+					return a, io.EOF
+				}
 				return a, nil
 			}
 			return a, err
@@ -61,6 +72,7 @@ func scanSliceLn[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
 			return a, err
 		}
 		a = append(a, v)
+		n++
 	}
 }
 
@@ -96,14 +108,19 @@ func scanVars[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, 
 	return scanVarsCommon(br, false, parser, a...)
 }
 
+var ErrExpectedEOL = errors.New("expected end of line")
+
 func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
 	n, err := scanVarsCommon(br, true, parser, a...)
 	if err != nil {
 		return n, err
 	}
 	err = skipSpace(br, true)
-	if err == EOL {
+	if err == EOL || err == io.EOF {
 		return n, nil
 	}
-	return n, err
+	if err != nil {
+		return n, err
+	}
+	return n, ErrExpectedEOL
 }

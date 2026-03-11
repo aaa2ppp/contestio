@@ -137,7 +137,7 @@ func Test_scanSliceLn(t *testing.T) {
 			"no lf",
 			"1 2 3 4 5",
 			[]string{"1", "2", "3", "4", "5"},
-			io.EOF,
+			nil,
 		},
 	}
 
@@ -298,7 +298,7 @@ func Test_scanVarsLn(t *testing.T) {
 			"1 2 3 4 5",
 			5,
 			[]string{"1", "2", "3", "4", "5"},
-			io.EOF,
+			nil,
 		},
 	}
 
@@ -321,6 +321,115 @@ func Test_scanVarsLn(t *testing.T) {
 				t.Errorf("scanVarsLn() out = %q, want %q", out, tt.want)
 			}
 		})
+	}
+}
+
+func Test_scanSliceLn_behavior(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    []string
+		wantErr error
+	}{
+		{"normal line with newline", "a b c\n", []string{"a", "b", "c"}, nil},
+		{"no newline at end", "a b c", []string{"a", "b", "c"}, nil},
+		{"empty line", "\n", nil, nil},
+		{"empty input", "", nil, io.EOF},
+		{"only spaces with newline", "   \n", nil, nil},
+		{"only spaces no newline", "   ", nil, io.EOF},
+		{"single token then EOF", "hello", []string{"hello"}, nil},
+		{"multiple tokens then EOF", "hello world", []string{"hello", "world"}, nil},
+		{"tokens with trailing spaces", "a b   ", []string{"a", "b"}, nil}, // trailing spaces, no newline
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			br := NewReader(strings.NewReader(tt.input))
+			got, err := scanSliceLn(br, func(b []byte) (string, error) { return string(b), nil }, nil)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("error = %v, want %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_scanVarsLn_behavior(t *testing.T) {
+	parseStr := func(b []byte) (string, error) { return string(b), nil }
+
+	tests := []struct {
+		name     string
+		input    string
+		request  int      // сколько переменных запрашиваем
+		wantVars []string // ожидаемые значения после чтения (непрочитанные останутся пустыми)
+		wantN    int
+		wantErr  error
+	}{
+		{"normal line with newline", "a b c\n", 3, []string{"a", "b", "c"}, 3, nil},
+		{"no newline at end", "a b c", 3, []string{"a", "b", "c"}, 3, nil},
+		{"partial data (less than requested)", "a b", 3, []string{"a", "b", ""}, 2, io.EOF},
+		{"empty line", "\n", 1, []string{""}, 0, EOL},
+		{"empty input", "", 1, []string{""}, 0, io.EOF},
+		{"extra spaces after", "a b c   \n", 3, []string{"a", "b", "c"}, 3, nil},
+		{"extra text after (garbage)", "a b c extra\n", 3, []string{"a", "b", "c"}, 3, ErrExpectedEOL},
+		{"EOF after all tokens", "a b c", 3, []string{"a", "b", "c"}, 3, nil},
+		{"more tokens than requested", "a b c d e\n", 3, []string{"a", "b", "c"}, 3, ErrExpectedEOL},
+		{"request zero variables", "", 0, []string{}, 0, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			br := NewReader(strings.NewReader(tt.input))
+			vars := make([]string, tt.request)
+			ptrs := make([]*string, tt.request)
+			for i := range vars {
+				ptrs[i] = &vars[i]
+			}
+
+			gotN, err := scanVarsLn(br, parseStr, ptrs...)
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("error = %v, want %v", err, tt.wantErr)
+			}
+			if gotN != tt.wantN {
+				t.Errorf("n = %d, want %d", gotN, tt.wantN)
+			}
+			for i := 0; i < tt.wantN; i++ {
+				if vars[i] != tt.wantVars[i] {
+					t.Errorf("var[%d] = %q, want %q", i, vars[i], tt.wantVars[i])
+				}
+			}
+			// Если было запрошено больше, чем прочитано, оставшиеся должны остаться пустыми (zero value)
+			for i := tt.wantN; i < tt.request; i++ {
+				if vars[i] != "" {
+					t.Errorf("var[%d] should be empty, got %q", i, vars[i])
+				}
+			}
+		})
+	}
+}
+
+func Test_readMultipleLines(t *testing.T) {
+	input := "1 2\n3 4\n5 6"
+	br := NewReader(strings.NewReader(input))
+	var result [][]string
+
+	for {
+		line, err := scanSliceLn(br, func(b []byte) (string, error) { return string(b), nil }, nil)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		result = append(result, line)
+	}
+
+	want := [][]string{{"1", "2"}, {"3", "4"}, {"5", "6"}}
+	if !reflect.DeepEqual(result, want) {
+		t.Errorf("got %v, want %v", result, want)
 	}
 }
 
