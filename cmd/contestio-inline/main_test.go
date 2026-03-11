@@ -70,6 +70,46 @@ func main() {
 			wantClear:  true,
 		},
 		{
+			name: "not_dot_import",
+			content: `package main
+import (
+    "github.com/aaa2ppp/contestio"
+    "os"
+)
+func main() {
+    br := contestio.NewReader(os.Stdin)
+    bw := contestio.NewWriter(os.Stdout)
+    defer bw.Flush()
+    var n int
+    contestio.ScanIntLn(br, &n)
+    var a contestio.Ints[int]
+    a = contestio.Resize(a, n)
+    contestio.ScanSlice(br, a)
+    contestio.PrintSliceLn(bw, a)
+}`,
+			wantInline: false,
+		},
+		{
+			name: "alias_import",
+			content: `package main
+import (
+    cio "github.com/aaa2ppp/contestio"
+    "os"
+)
+func main() {
+    br := cio.NewReader(os.Stdin)
+    bw := cio.NewWriter(os.Stdout)
+    defer bw.Flush()
+    var n int
+    cio.ScanIntLn(br, &n)
+    var a cio.Ints[int]
+    a = cio.Resize(a, n)
+    cio.ScanSlice(br, a)
+    cio.PrintSliceLn(bw, a)
+}`,
+			wantInline: false,
+		},
+		{
 			name: "no_import",
 			content: `package main
 import "os"

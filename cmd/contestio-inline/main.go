@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -121,7 +122,7 @@ func inlineNodeSetToFile(fileName string, pkg *packages.Package, nodeSet map[ast
 
 	var outbuf bytes.Buffer
 
-	// копируем файл исключая импрор пакета
+	// копируем файл исключая импорт пакета
 	var isImport bool
 	var foundImport bool
 	for pos := 0; pos < len(input); {
@@ -133,11 +134,12 @@ func inlineNodeSetToFile(fileName string, pkg *packages.Package, nodeSet map[ast
 		pos = end
 
 		// TODO: это хрупко
+		target := ". " + strconv.Quote(pkg.PkgPath)
 		t := strings.TrimSpace(s)
 		if strings.HasPrefix(t, "import ") {
 			isImport = true
 		}
-		if isImport && strings.Contains(s, pkg.PkgPath) {
+		if isImport && strings.Contains(s, target) {
 			foundImport = true
 		} else {
 			outbuf.WriteString(s)
@@ -149,7 +151,7 @@ func inlineNodeSetToFile(fileName string, pkg *packages.Package, nodeSet map[ast
 	}
 
 	if !foundImport {
-		return fmt.Errorf("Not found import %q in file %q", pkg.PkgPath, fileName)
+		return fmt.Errorf("Not found dot import %q in file %q", pkg.PkgPath, fileName)
 	}
 
 	// дописываем узлы пакета
@@ -185,12 +187,12 @@ func clearInliningFromFile(fileName string, pkgPath string) error {
 
 	packagePos := findLinePrefix(input, "package ")
 	if packagePos == -1 {
-		return fmt.Errorf("Not fond package in file %q", fileName)
+		return fmt.Errorf("Not found package in file %q", fileName)
 	}
 
 	importPos := findLinePrefix(input, "import ")
 	if packagePos > importPos {
-		return fmt.Errorf("Not fond correct import in file %q", fileName)
+		return fmt.Errorf("Not found correct import in file %q", fileName)
 	}
 
 	openTagPos, closeTagPos := findInlineTags(input, pkgPath)
@@ -202,7 +204,7 @@ func clearInliningFromFile(fileName string, pkgPath string) error {
 	var end int
 
 	if importPos == -1 {
-		// нет ни одного импорта - всталяем отдельной строкой сразу за package
+		// нет ни одного импорта - вставляем отдельной строкой сразу за package
 		end = bytes.IndexByte(input[packagePos:], '\n') + packagePos + 1
 		outbuf.Write(input[:end])
 		fmt.Fprintf(&outbuf, "\nimport %q\n", pkgPath)
@@ -212,10 +214,10 @@ func clearInliningFromFile(fileName string, pkgPath string) error {
 
 		t := bytes.TrimSpace(input[importPos:end])
 		if bytes.HasSuffix(t, []byte("(")) {
-			// втавляем перевой строкой в блок импорта
+			// вставляем перевой строкой в блок импорта
 			fmt.Fprintf(&outbuf, "\t. %q\n", pkgPath)
 		} else {
-			// всталяем отдельной строкой
+			// вставляем отдельной строкой
 			fmt.Fprintf(&outbuf, "\nimport . %q\n", pkgPath)
 		}
 	}
