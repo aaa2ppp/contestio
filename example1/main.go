@@ -57,10 +57,10 @@ func run(in io.Reader, out io.Writer) error {
 		// Если в задаче указам лимит, то гарантировано будут такие тесты.
 		// Но можно указать 0 или не преаллоцировать вовсе, а передать в ScanIntsLn nil.
 		const prealloc = 1 << 20       // 1M
-		a = make([]int32, 0, prealloc) // важно утановить для `a` len=0, ScanIntsLn добавляет элементы к слайсу
+		a = make([]int32, 0, prealloc) // важно установить для `a` len=0, ScanIntsLn добавляет элементы к слайсу
 
 		var err error                  // декларируем err отдельно, если в следующей строчке использовать := это затенит `a`
-		a, err = ScanIntsLn(br, a[:0]) // еще раз, ВАЖНО утановить для `a` len=0, ScanIntsLn ДОБАВЛЯЕТ элементы к слайсу
+		a, err = ScanIntsLn(br, a[:0]) // еще раз, ВАЖНО установить для `a` len=0, ScanIntsLn ДОБАВЛЯЕТ элементы к слайсу
 		if err != nil && err != io.EOF {
 			return fmt.Errorf("scan a[%d]: %v", len(a), err)
 		}
