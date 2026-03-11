@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"math/rand"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -321,6 +322,82 @@ func Benchmark_parseInt(b *testing.B) {
 			}
 		}
 	})
+}
+
+func fuzz_parseInt[T Int](f *testing.F) {
+	f.Add(int64(1))
+	f.Add(int64(2))
+	f.Add(int64(3))
+
+	f.Fuzz(func(t *testing.T, a int64) {
+		rand := rand.New(rand.NewSource(a))
+		nums := generateInts[T](rand, 100)
+		input := makeIntsInput(rand, nums, 1)
+		tokens := bytes.Fields(input)
+		if len(tokens) != len(nums) {
+			t.Fatalf("len(tokens)(%d) != len(nums)(%d)", len(tokens), len(nums))
+		}
+		// t.Logf("%s", tokens)
+		std := make([]T, 0, len(tokens))
+		base := make([]T, 0, len(tokens))
+		fast := make([]T, 0, len(tokens))
+		var (
+			v   T
+			err error
+		)
+		for _, token := range tokens {
+			v, err = parseIntStd[T](token)
+			if err != nil {
+				t.Fatalf("std: %v", err)
+			}
+			std = append(std, v)
+
+			v, err = parseIntBase[T](token)
+			if err != nil {
+				t.Fatalf("base: %v", err)
+			}
+			base = append(base, v)
+
+			v, err = parseIntFast[T](token)
+			if err != nil {
+				t.Fatalf("fast: %v", err)
+			}
+			fast = append(fast, v)
+		}
+		if !reflect.DeepEqual(std, nums) {
+			t.Fatalf("std parsing is broken!\ninput: %s,\nres:  %v", input, std)
+		}
+		if !reflect.DeepEqual(base, nums) {
+			t.Fatalf("base parsing is broken!\ninput: %s,\nres:  %v", input, base)
+		}
+		if !reflect.DeepEqual(fast, nums) {
+			t.Fatalf("fast parsing is broken!\ninput: %s,\nres:  %v", input, fast)
+		}
+	})
+}
+
+func Fuzz_parseInt8(f *testing.F) {
+	fuzz_parseInt[int8](f)
+}
+
+func Fuzz_parseInt32(f *testing.F) {
+	fuzz_parseInt[int32](f)
+}
+
+func Fuzz_parseInt64(f *testing.F) {
+	fuzz_parseInt[int64](f)
+}
+
+func Fuzz_parseUint8(f *testing.F) {
+	fuzz_parseInt[uint8](f)
+}
+
+func Fuzz_parseUint32(f *testing.F) {
+	fuzz_parseInt[uint32](f)
+}
+
+func Fuzz_parseUint64(f *testing.F) {
+	fuzz_parseInt[uint64](f)
 }
 
 func Benchmark_parseInt_boundaries(b *testing.B) {

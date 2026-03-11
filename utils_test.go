@@ -35,11 +35,15 @@ func makeAppendSpace(rand *rand.Rand, n int) func([]byte) []byte {
 	return func(b []byte) []byte { return append(b, strings.Repeat(" ", rand.Intn(n)+1)...) }
 }
 
-func makeIntsInput[T Sign](rand *rand.Rand, nums []T, maxSpace int) []byte {
+func makeIntsInput[T Int](rand *rand.Rand, nums []T, maxSpace int) []byte {
 	appendSpace := makeAppendSpace(rand, maxSpace)
 	var input []byte
 	for _, v := range nums {
-		input = strconv.AppendInt(input, int64(v), 10)
+		if ^T(0) < 0 {
+			input = strconv.AppendInt(input, int64(v), 10)
+		} else {
+			input = strconv.AppendUint(input, uint64(v), 10)
+		}
 		input = appendSpace(input)
 	}
 	input[max(len(input)-1, 0)] = '\n'
