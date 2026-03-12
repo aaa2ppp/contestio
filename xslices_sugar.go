@@ -1,3 +1,5 @@
+//go:build sugar
+
 package contestio
 
 import "slices"
@@ -13,11 +15,11 @@ func Grow[T any, S ~[]T](s S, n int) S { return slices.Grow(s, n) }
 // слайс будет расширен с помощью Grow, если меньше, то усечен до n с обнулением
 // элементов с индексом от n до конца слайса. Паникует, если n<0.
 func Resize[T any, S ~[]T](s S, n int) S {
-	if n > cap(s) {
-		return Grow(s, n-len(s))[:n]
-	}
 	if n < 0 {
 		panic("cannot be negative")
+	}
+	if n > len(s) {
+		return Grow(s, n-len(s))[:n]
 	}
 	clear(s[n:])
 	return s[:n]

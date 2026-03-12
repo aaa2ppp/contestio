@@ -17,11 +17,11 @@
 
 - **006 [ ] What to do with Sugar? (2026-03-10)**
 
-The `ScanSlice` and `PrintSlice` functions accept `Parser` and `ValAppender` interfaces, respectively.
-This allows scanning a slice of any type using only these functions.
-The solution seems heavyweight (performance overhead) and clunky (requires implementing an interface).
-Currently, this functionality is isolated from the main codebase with the build tag `-tags=sugar`.
-Should we delete it or merge it into the main codebase?
+  The `ScanSlice` and `PrintSlice` functions accept `Parser` and `ValAppender` interfaces, respectively.
+  This allows scanning a slice of any type using only these functions.
+  The solution seems heavyweight (performance overhead) and clunky (requires implementing an interface).
+  Currently, this functionality is isolated from the main codebase with the build tag `-tags=sugar`.
+  Should we delete it or merge it into the main codebase?
 
 - **008 [ ] Should nextToken/scanXxx advance position on read/parse errors? (2026-03-11)**
 
@@ -67,3 +67,9 @@ Should we delete it or merge it into the main codebase?
 
   This makes the API more convenient for typical contest usage, where EOF after data is not an error.
 
+- **009 [+] Fix panic in Resize when expanding slice within capacity (2026-03-11) (made:2026-03-12)**
+
+  **Problem:** The current implementation of `Resize` panics when `len(s) < n <= cap(s)` because it unconditionally calls `clear(s[n:])`.  
+  **Solution:** Call `clear` only when `n < len(s)`.
+
+  Move `xslices.go` under `sugar` build tag.
