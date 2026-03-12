@@ -5,6 +5,7 @@ import (
 	"unsafe"
 )
 
+// Float обобщает типы чисел с плавающей точкой
 type Float interface{ ~float32 | ~float64 }
 
 func parseFloat[T Float](token []byte) (T, error) {

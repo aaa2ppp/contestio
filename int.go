@@ -7,12 +7,15 @@ import (
 )
 
 type (
+	// Sign обобщает знаковые целочисленные типы
 	Sign interface {
 		~int | ~int8 | ~int16 | ~int32 | ~int64
 	}
+	// Unsig обобщает беззнаковые целочисленные типы
 	Unsig interface {
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
 	}
+	// Int обобщает все целочисленные типы
 	Int interface{ Sign | Unsig }
 )
 
@@ -55,7 +58,7 @@ func parseIntBase[T Int](token []byte) (T, error) {
 		}
 	}
 
-	// parse to uint64 (no fast-path: len<20; see parse_int_fast.go)
+	// parse to uint64 (no fast-path: len<20; see parseIntFast)
 	var u64 uint64
 	for _, digit := range token {
 		digit -= '0'

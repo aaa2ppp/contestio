@@ -2,7 +2,7 @@
 
 package contestio
 
-// Обобщение ScanSlice и PrintSlice слайсов для любого типа.
+// Обобщение ScanSlice и PrintSlice для слайсов любого типа.
 // Вместо специфических функции Scan[Type]s/Scan[Type]sLn можно использовать ScanSlice/ScanSliceLn.
 // Возможно кому-то будет это удобно. Мне кажется избыточным "сахором".
 //

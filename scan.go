@@ -108,6 +108,7 @@ func scanVars[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, 
 	return scanVarsCommon(br, false, parser, a...)
 }
 
+// ErrExpectedEOL возвращается, если не был прочитан ожидаемый конец строки
 var ErrExpectedEOL = errors.New("expected end of line")
 
 func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {

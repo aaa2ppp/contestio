@@ -46,7 +46,7 @@ func makeIntsInput[T Int](rand *rand.Rand, nums []T, maxSpace int) []byte {
 		}
 		input = appendSpace(input)
 	}
-	input[max(len(input)-1, 0)] = '\n'
+	input = append(input, '\n')
 	return input
 }
 
@@ -58,7 +58,7 @@ func makeFloatsInput[T Float](rand *rand.Rand, nums []T, maxSpace int) []byte {
 		input = strconv.AppendFloat(input, float64(v), 'g', -1, bitSize)
 		input = appendSpace(input)
 	}
-	input[max(len(input)-1, 0)] = '\n'
+	input = append(input, '\n')
 	return input
 }
 

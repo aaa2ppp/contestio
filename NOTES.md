@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:009 -->
+<!-- next-note-id:012 -->
 
 ## Open Questions
 
@@ -37,6 +37,16 @@
 
   Should we change the behavior to **not advance** on parse errors (i.e., leave the reader pointing at the beginning of the offending token)? Or should we keep the current behavior but document it clearly? This decision affects all scanning functions and the `nextToken` helper.
 
+- **010 [ ] Remove Sign and Unsig interfaces? (2026-03-12)**
+
+  Currently, `Sign` and `Unsig` are only used to define `Int`. They are not used elsewhere in the library. Should we remove them and define `Int` directly as `~int | ~int8 | ... | ~uint | ...`? Removing would reduce public API surface, but might limit future extensibility. Decision needed.  
+
+
+- **011 [ ] Replace custom type example with code generator? (2026-03-12)**
+
+  The current example (`custom_type.go`) demonstrates how to create a custom type by copying and modifying library code. This requires forking the library, which is not ideal. Should we replace it with a `go generate` based generator that produces the necessary wrapper functions for any user-defined type? Or should we remove the example altogether and rely on the generic `ScanSlice`/`PrintSlice` (under sugar tag) as the primary way to handle custom types? The sugar approach already provides interfaces for custom types, but it's hidden behind a build tag and may have performance overhead. Decision needed.
+
+  
 ## Ideas
 
 ## Plans

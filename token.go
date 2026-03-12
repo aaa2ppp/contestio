@@ -38,6 +38,7 @@ func nextToken(br *Reader) ([]byte, error) {
 	return buf, ErrTokenTooLong
 }
 
+// EOL сигнализирует, что прочитан конец строки (аналогично io.EOF для конца файла)
 var EOL = errors.New("EOL")
 
 var spaceTab = [256]bool{
