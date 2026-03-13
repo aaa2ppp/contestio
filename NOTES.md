@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:012 -->
+<!-- next-note-id:013 -->
 
 ## Open Questions
 
@@ -83,3 +83,11 @@
   **Solution:** Call `clear` only when `n < len(s)`.
 
   Move `xslices.go` under `sugar` build tag.
+
+- **012 [+] Verify compilation after inlining/clearing before replacing original file (2026-03-13) (made:2026-03-13)**
+
+  **Problem:** After inlining library code (or clearing inlined code), the resulting `main.go` might become uncompilable (e.g., due to missing build tags or other issues). Previously, the tool would blindly overwrite the original file, leaving the user with a broken file. This is unacceptable — the file should remain in a working state or stay unchanged.
+
+  **Solution:** Before renaming the backup to the original file, run a temporary `go build` with the provided `-tags` on the modified code. If the build fails, the operation aborts, preserving the original file. A new `--no-build-check` flag allows skipping this verification when needed. The check is performed both for `inline` and `clear` operations.
+
+  Also improved formatting: remove empty lines between inlined declarations.

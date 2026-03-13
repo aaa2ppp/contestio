@@ -12,6 +12,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -27,9 +28,7 @@ func usage(fs *flag.FlagSet) func() {
 	return func() {
 		fmt.Fprintf(fs.Output(), "Usage: %s [options] [filename]\n", fs.Name())
 		fmt.Fprintf(fs.Output(), "Options:\n")
-		fmt.Fprintf(fs.Output(), "  -clear    удалить встроенный код библиотеки\n")
-		fmt.Fprintf(fs.Output(), "  -tags     теги сборки (см. go help build)\n")
-		fmt.Fprintf(fs.Output(), "  -h        показать эту справку\n")
+		fs.PrintDefaults()
 		fmt.Fprintf(fs.Output(), "\nfilename - файл, в который будет встроен код (по умолчанию main.go).\n")
 		os.Exit(2)
 	}
@@ -47,13 +46,20 @@ func run(args []string) error {
 	fs := flag.NewFlagSet("contestio-inline", flag.ContinueOnError)
 	var clear bool
 	var buildTags string
+	var noBuildCheck bool
 
 	fs.BoolVar(&clear, "clear", false, "удалить встроенный код библиотеки")
+	fs.BoolVar(&noBuildCheck, "no-build-check", false, "отключить проверку компиляции")
 	fs.StringVar(&buildTags, "tags", "", "теги сборки (см. go help build)")
 	fs.Usage = usage(fs)
 
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	opts := inlineOpts{
+		buildTags:    buildTags,
+		noBuildCheck: noBuildCheck,
 	}
 
 	posArgs := fs.Args()
@@ -68,7 +74,7 @@ func run(args []string) error {
 	solutionDir := filepath.Dir(absFilePath)
 
 	if clear {
-		if err := clearInliningFromFile(absFilePath, libPath); err != nil {
+		if err := clearInliningFromFile(absFilePath, libPath, opts); err != nil {
 			log.Fatal(err)
 		}
 		log.Printf("Код библиотеки удалён из %s\n", fileName)
@@ -96,7 +102,7 @@ func run(args []string) error {
 	}
 
 	// Этап 3: инлайним код найденных объектов в main.go
-	if err := inlineNodeSetToFile(absFilePath, pkg, nodeSet); err != nil {
+	if err := inlineNodeSetToFile(absFilePath, pkg, nodeSet, opts); err != nil {
 		return err
 	}
 	log.Printf("Код библиотеки успешно встроен в %s\n", fileName)
@@ -104,7 +110,12 @@ func run(args []string) error {
 	return nil
 }
 
-func inlineNodeSetToFile(fileName string, pkg *packages.Package, nodeSet map[ast.Node]bool) error {
+type inlineOpts struct {
+	buildTags    string
+	noBuildCheck bool
+}
+
+func inlineNodeSetToFile(fileName string, pkg *packages.Package, nodeSet map[ast.Node]bool, opts inlineOpts) error {
 	input, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
@@ -159,7 +170,37 @@ func inlineNodeSetToFile(fileName string, pkg *packages.Package, nodeSet map[ast
 		return fmt.Errorf("print nodes: %v", err)
 	}
 
-	return rewriteFileWithBackup(fileName, outbuf.Bytes())
+	return rewriteFileWithBackup(fileName, outbuf.Bytes(), opts)
+}
+
+// compileCheck проверяет, компилируется ли переданный код Go.
+func compileCheck(code []byte, buildTags string) error {
+	tmpFile, err := os.CreateTemp("", "check-*.go")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+	}()
+
+	if _, err := tmpFile.Write(code); err != nil {
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+
+	nullDevice := os.DevNull
+	cmd := exec.Command("go", "build", "-tags="+buildTags, "-o", nullDevice, tmpFile.Name())
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("FAIL: build -tags=%s\n%s", buildTags, stderr.String())
+	}
+	return nil
 }
 
 func findLinePrefix(buf []byte, prefix string) int {
@@ -179,7 +220,7 @@ func findInlineTags(buf []byte, pkgPath string) (int, int) {
 	return openPos, closePos
 }
 
-func clearInliningFromFile(fileName string, pkgPath string) error {
+func clearInliningFromFile(fileName string, pkgPath string, opts inlineOpts) error {
 	input, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
@@ -229,10 +270,10 @@ func clearInliningFromFile(fileName string, pkgPath string) error {
 		outbuf.Write(input[end:])
 	}
 
-	return rewriteFileWithBackup(fileName, outbuf.Bytes())
+	return rewriteFileWithBackup(fileName, outbuf.Bytes(), opts)
 }
 
-func rewriteFileWithBackup(fileName string, output []byte) error {
+func rewriteFileWithBackup(fileName string, output []byte, opts inlineOpts) error {
 	fileInfo, err := os.Stat(fileName)
 	if err != nil {
 		return err
@@ -241,6 +282,12 @@ func rewriteFileWithBackup(fileName string, output []byte) error {
 	output, err = normalizeImports(output, fileName)
 	if err != nil {
 		return fmt.Errorf("final normalize imports: %v", err)
+	}
+
+	if !opts.noBuildCheck {
+		if err := compileCheck(output, opts.buildTags); err != nil {
+			return err
+		}
 	}
 
 	if err := os.Rename(fileName, fileName+"~"); err != nil {
@@ -329,16 +376,32 @@ func printNodeSet(w io.Writer, pkg *packages.Package, nodeSet map[ast.Node]bool)
 	printOpenInlineTag(w, pkg.PkgPath)
 	fmt.Fprintln(w)
 
+	var buf bytes.Buffer
 	for _, it := range nodes {
 		removeComments(it.node)
-		if err := format.Node(w, pkg.Fset, it.node); err != nil {
+		buf.Reset()
+		if err := format.Node(&buf, pkg.Fset, it.node); err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка форматирования: %v\n", err)
 			continue
 		}
-		fmt.Fprint(w, ";")
+		w.Write(cutEmptyLines(buf.Bytes()))
 	}
 
 	return printCloseInlineTag(w, pkg.PkgPath)
+}
+
+// cutEmptyLines works inplace uses the space of the same slice for writing
+func cutEmptyLines(b []byte) []byte {
+	lines := bytes.Split(b, []byte("\n"))
+	b = b[:0]
+	for _, l := range lines {
+		if len(l) == 0 || len(l) == 1 && l[0] == '\r' {
+			continue
+		}
+		b = append(b, l...)
+		b = append(b, '\n')
+	}
+	return b
 }
 
 // removeComments рекурсивно удаляет все комментарии из узла AST.
