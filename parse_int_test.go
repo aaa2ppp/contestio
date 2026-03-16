@@ -110,6 +110,7 @@ func test_parseInt(t *testing.T, parser func(any) parserFunc) {
 		{"valid_then_invalid", "123abc", int64(0), true, strconv.ErrSyntax},
 		{"invalid_then_valid", "abc123", int64(0), true, strconv.ErrSyntax},
 		{"digit_then_sign", "123-", int64(0), true, strconv.ErrSyntax},
+		{"20th_not_digit", "1800000000000000000a", uint64(0), true, strconv.ErrSyntax},
 
 		// Null-байты и не-ASCII (защита от некорректных буферов)
 		{"null_byte_prefix", "\x00123", int64(0), true, strconv.ErrSyntax},
@@ -123,6 +124,45 @@ func test_parseInt(t *testing.T, parser func(any) parserFunc) {
 		{"21_digits", "100000000000000000000", uint64(0), true, strconv.ErrRange},
 		{"negative_20_digits", "-9223372036854775808", int64(-9223372036854775808), false, nil},
 		{"negative_20_digits_overflow", "-9223372036854775809", int64(0), true, strconv.ErrRange},
+
+		{"0x1", "0", uint64(0), false, nil},
+		{"7x1", "7", uint64(7), false, nil},
+		{"8x1", "8", uint64(8), false, nil},
+		{"9x1", "9", uint64(9), false, nil},
+
+		{"7x8", "77777777", uint64(77777777), false, nil},
+		{"8x8", "88888888", uint64(88888888), false, nil},
+		{"9x8", "99999999", uint64(99999999), false, nil},
+
+		{"7x9", "777777777", uint64(777777777), false, nil},
+		{"8x9", "888888888", uint64(888888888), false, nil},
+		{"9x9", "999999999", uint64(999999999), false, nil},
+
+		{"7x16", "77777777777777777", uint64(77777777777777777), false, nil},
+		{"8x16", "88888888888888888", uint64(88888888888888888), false, nil},
+		{"9x16", "99999999999999999", uint64(99999999999999999), false, nil},
+
+		{"7x17", "777777777777777777", uint64(777777777777777777), false, nil},
+		{"8x17", "888888888888888888", uint64(888888888888888888), false, nil},
+		{"9x17", "999999999999999999", uint64(999999999999999999), false, nil},
+
+		// 0123456789:;<=>? az
+		{"bad_11", ":234567812345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_12", "1;34567812345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_13", "12<4567812345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_14", "123=567812345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_15", "1234>67812345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_16", "12345?7812345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_17", "123456a812345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_18", "1234567z12345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_21", "12345678<2345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_22", "123456781=345678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_23", "1234567812>45678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_24", "12345678123?5678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_25", "123456781234:678", uint64(0), true, strconv.ErrSyntax},
+		{"bad_26", "1234567812345;78", uint64(0), true, strconv.ErrSyntax},
+		{"bad_27", "12345678123456<8", uint64(0), true, strconv.ErrSyntax},
+		{"bad_28", "123456781234567=", uint64(0), true, strconv.ErrSyntax},
 	}
 
 	for _, tt := range tests {
