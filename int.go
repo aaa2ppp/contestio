@@ -6,18 +6,10 @@ import (
 	"unsafe"
 )
 
-type (
-	// Sign обобщает знаковые целочисленные типы
-	Sign interface {
-		~int | ~int8 | ~int16 | ~int32 | ~int64
-	}
-	// Unsig обобщает беззнаковые целочисленные типы
-	Unsig interface {
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
-	}
-	// Int обобщает все целочисленные типы
-	Int interface{ Sign | Unsig }
-)
+// Int обобщает все целочисленные типы
+type Int interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
 
 func parseIntStd[T Int](b []byte) (T, error) {
 	signed := ^T(0) < 0

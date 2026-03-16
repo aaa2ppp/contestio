@@ -37,11 +37,6 @@
 
   Should we change the behavior to **not advance** on parse errors (i.e., leave the reader pointing at the beginning of the offending token)? Or should we keep the current behavior but document it clearly? This decision affects all scanning functions and the `nextToken` helper.
 
-- **010 [ ] Remove Sign and Unsig interfaces? (2026-03-12)**
-
-  Currently, `Sign` and `Unsig` are only used to define `Int`. They are not used elsewhere in the library. Should we remove them and define `Int` directly as `~int | ~int8 | ... | ~uint | ...`? Removing would reduce public API surface, but might limit future extensibility. Decision needed.  
-
-
 - **011 [ ] Replace custom type example with code generator? (2026-03-12)**
 
   The current example (`custom_type.go`) demonstrates how to create a custom type by copying and modifying library code. This requires forking the library, which is not ideal. Should we replace it with a `go generate` based generator that produces the necessary wrapper functions for any user-defined type? Or should we remove the example altogether and rely on the generic `ScanSlice`/`PrintSlice` (under sugar tag) as the primary way to handle custom types? The sugar approach already provides interfaces for custom types, but it's hidden behind a build tag and may have performance overhead. Decision needed.
@@ -84,6 +79,12 @@
 
   Move `xslices.go` under `sugar` build tag.
 
+- **010 [+] Remove Sign and Unsig interfaces? (2026-03-12)(made:2026-03-16)**
+
+  Currently, `Sign` and `Unsig` are only used to define `Int`. They are not used elsewhere in the library. Should we remove them and define `Int` directly as `~int | ~int8 | ... | ~uint | ...`? Removing would reduce public API surface, but might limit future extensibility. Decision needed.  
+
+  I threw them away because I'm annoyed by these lines in the inlining.
+
 - **012 [+] Verify compilation after inlining/clearing before replacing original file (2026-03-13) (made:2026-03-13)**
 
   **Problem:** After inlining library code (or clearing inlined code), the resulting `main.go` might become uncompilable (e.g., due to missing build tags or other issues). Previously, the tool would blindly overwrite the original file, leaving the user with a broken file. This is unacceptable — the file should remain in a working state or stay unchanged.
@@ -91,3 +92,4 @@
   **Solution:** Before renaming the backup to the original file, run a temporary `go build` with the provided `-tags` on the modified code. If the build fails, the operation aborts, preserving the original file. A new `--no-build-check` flag allows skipping this verification when needed. The check is performed both for `inline` and `clear` operations.
 
   Also improved formatting: remove empty lines between inlined declarations.
+
