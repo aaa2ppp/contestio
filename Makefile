@@ -1,9 +1,10 @@
 BIN_DIR ?= ./bin
 TMP_DIR ?= ./tmp
+BENCH_DIR ?= ./benchmarks
 
 GOEXE := $(shell go env GOEXE)
-TEST_FLAGS ?=
-TEST_FLAGS := $(TEST_FLAGS) -tags=dev,sugar
+TEST_FLAGS ?= -tags=dev,sugar
+BENCH_FLAGS ?= -benchmem 
 
 MERGE_FILES ?= Makefile go.mod go.sum *.go *.sh *.md *.txt
 
@@ -12,7 +13,7 @@ SRC ?= .
 DST ?= 1
 
 # Кастомные флаги сборки (можно переопределить при вызове make)
-GO_BUILD_FLAGS ?=
+BUILD_FLAGS ?=
 
 # Находим все поддиректории в cmd, которые потенциально могут быть бинарниками
 CMDS := $(wildcard cmd/*)
@@ -36,22 +37,58 @@ test:
 	go test $(TEST_FLAGS) ./...
 	@echo OK
 
-bench:
-	@mkdir -p $(TMP_DIR)
-	go test -bench '(parseInt$$|scanInt|scanFloat|printInt|printFloat)' -benchmem $(TEST_FLAGS) . | tee $(TMP_DIR)/$(DST).bench
-	@echo "Benchmarks saved to $(TMP_DIR)/$(DST).bench"
+# Суффиксы для parseInt (пустой для базовой цели)
+PARSE_SUFFIXES := 2 4 6 8 12 16
+PARSE_TARGETS  := bench-parse-int $(addprefix bench-parse-int, $(PARSE_SUFFIXES))
 
+# Общие суффиксы для scan и print
+SCAN_PRINT_SUFFIXES := int float
+SCAN_TARGETS  := $(addprefix bench-scan-, $(SCAN_PRINT_SUFFIXES))
+PRINT_TARGETS := $(addprefix bench-print-, $(SCAN_PRINT_SUFFIXES))
+
+# Все цели бенчмарков
+ALL_BENCH_TARGETS := $(PARSE_TARGETS) $(SCAN_TARGETS) $(PRINT_TARGETS)
+
+# Явно объявляем все цели .PHONY
+.PHONY: $(ALL_BENCH_TARGETS) bench-parse-int-all bench-scan-all bench-print-all
+
+# Статическое правило для parseInt
+$(PARSE_TARGETS): %:
+	go test -bench 'parseInt$(subst bench-parse-int,,$@)$$' $(BENCH_FLAGS)
+
+# Функции капитализации (int -> Int, float -> Float)
+capitalize_int   = Int
+capitalize_float = Float
+
+# Статические правила для scan
+$(SCAN_TARGETS): bench-scan-%:
+	go test -bench 'scan$(capitalize_$*)$$' $(BENCH_FLAGS)
+
+# Статические правила для print
+$(PRINT_TARGETS): bench-print-%:
+	go test -bench 'print$(capitalize_$*)$$' $(BENCH_FLAGS)
+
+# Групповые цели
+bench-parse-int-all: $(PARSE_TARGETS)
+bench-scan-all: $(SCAN_TARGETS)
+bench-print-all: $(PRINT_TARGETS)
+
+benchmarks: FORCE
+	@mkdir -p $(BENCH_DIR)
+	@$(MAKE) bench-parse-int-all > $(BENCH_DIR)/parse-int-all
+	@$(MAKE) bench-scan-all      > $(BENCH_DIR)/scan-all
+	@$(MAKE) bench-print-all     > $(BENCH_DIR)/print-all
 
 # Шаблонное правило для сборки любого бинарника
 $(BIN_DIR)/%: FORCE
 	@mkdir -p $(@D)
-	go build $(GO_BUILD_FLAGS) -o $@$(GOEXE) ./cmd/$(notdir $@)
+	go build $(BUILD_FLAGS) -o $@$(GOEXE) ./cmd/$(notdir $@)
 
 build: $(BINARIES)
 
 # Очистка
 clean:
-	-rm -rf $(BIN_DIR) $(TMP_DIR)
+	-rm -rf $(BIN_DIR) $(TMP_DIR) $(BENCH_DIR)
 
 
 .PHONY: merge patch

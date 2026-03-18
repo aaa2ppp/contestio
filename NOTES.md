@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:013 -->
+<!-- next-note-id:014 -->
 
 ## Open Questions
 
@@ -36,11 +36,6 @@
   - Error recovery becomes non-trivial because the state is already mutated.
 
   Should we change the behavior to **not advance** on parse errors (i.e., leave the reader pointing at the beginning of the offending token)? Or should we keep the current behavior but document it clearly? This decision affects all scanning functions and the `nextToken` helper.
-
-- **010 [ ] Remove Sign and Unsig interfaces? (2026-03-12)**
-
-  Currently, `Sign` and `Unsig` are only used to define `Int`. They are not used elsewhere in the library. Should we remove them and define `Int` directly as `~int | ~int8 | ... | ~uint | ...`? Removing would reduce public API surface, but might limit future extensibility. Decision needed.  
-
 
 - **011 [ ] Replace custom type example with code generator? (2026-03-12)**
 
@@ -84,6 +79,12 @@
 
   Move `xslices.go` under `sugar` build tag.
 
+- **010 [+] Remove Sign and Unsig interfaces? (2026-03-12)(made:2026-03-16)**
+
+  Currently, `Sign` and `Unsig` are only used to define `Int`. They are not used elsewhere in the library. Should we remove them and define `Int` directly as `~int | ~int8 | ... | ~uint | ...`? Removing would reduce public API surface, but might limit future extensibility. Decision needed.  
+
+  I threw them away because I'm annoyed by these lines in the inlining.
+
 - **012 [+] Verify compilation after inlining/clearing before replacing original file (2026-03-13) (made:2026-03-13)**
 
   **Problem:** After inlining library code (or clearing inlined code), the resulting `main.go` might become uncompilable (e.g., due to missing build tags or other issues). Previously, the tool would blindly overwrite the original file, leaving the user with a broken file. This is unacceptable — the file should remain in a working state or stay unchanged.
@@ -91,3 +92,9 @@
   **Solution:** Before renaming the backup to the original file, run a temporary `go build` with the provided `-tags` on the modified code. If the build fails, the operation aborts, preserving the original file. A new `--no-build-check` flag allows skipping this verification when needed. The check is performed both for `inline` and `clear` operations.
 
   Also improved formatting: remove empty lines between inlined declarations.
+
+- **013 [+] Fix `generateInts` in `utils_test.go` to generate correctly length-distributed signed integers (2026-03-18) (made:2026-03-18)**
+
+  **Problem:** The `generateInts` helper used in benchmarks produced numbers with incorrect length distribution for negative values — all negative values were long, skewing benchmark results.  
+  **Solution:** Rewrite `generateInts` to generate random numbers with proper sign and uniform length distribution, ensuring realistic benchmarks.
+

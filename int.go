@@ -6,18 +6,10 @@ import (
 	"unsafe"
 )
 
-type (
-	// Sign обобщает знаковые целочисленные типы
-	Sign interface {
-		~int | ~int8 | ~int16 | ~int32 | ~int64
-	}
-	// Unsig обобщает беззнаковые целочисленные типы
-	Unsig interface {
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
-	}
-	// Int обобщает все целочисленные типы
-	Int interface{ Sign | Unsig }
-)
+// Int обобщает все целочисленные типы
+type Int interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
 
 func parseIntStd[T Int](b []byte) (T, error) {
 	signed := ^T(0) < 0
@@ -48,20 +40,21 @@ func parseIntBase[T Int](token []byte) (T, error) {
 	}
 
 	// handle sign
-	if orig[0] == '-' || orig[0] == '+' {
+	firstChar := orig[0]
+	if firstChar == '-' || firstChar == '+' {
 		if unsigned {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
-		token = token[1:]
+		token = orig[1:]
 		if len(token) == 0 {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
 	}
 
-	// parse to uint64 (no fast-path: len<20; see parseIntFast)
+	// parse to uint64 (not optimized; see parseIntFast)
 	var u64 uint64
-	for _, digit := range token {
-		digit -= '0'
+	for i := uint(0); i < uint(len(token)); i++ {
+		digit := token[i] - '0'
 		if digit > 9 {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
@@ -72,6 +65,7 @@ func parseIntBase[T Int](token []byte) (T, error) {
 		return 0, &IntError{string(orig), strconv.ErrRange}
 	}
 
+	// unsigned range check
 	if unsigned {
 		if u64 > uint64(^T(0)) {
 			return 0, &IntError{string(orig), strconv.ErrRange}
@@ -82,7 +76,7 @@ func parseIntBase[T Int](token []byte) (T, error) {
 	// signed range check
 	bits := int(unsafe.Sizeof(T(0))) << 3
 	absMin := uint64(1) << (bits - 1) // |min(T)|
-	if orig[0] == '-' {
+	if firstChar == '-' {
 		if u64 > absMin {
 			return 0, &IntError{string(orig), strconv.ErrRange}
 		}
@@ -94,6 +88,17 @@ func parseIntBase[T Int](token []byte) (T, error) {
 	return T(u64), nil
 }
 
+func parseUintFastLoop(token []byte, i uint, u64 uint64) (uint64, error) {
+	for ; i < uint(len(token)); i++ {
+		digit := token[i] - '0'
+		if digit > 9 {
+			return 0, strconv.ErrSyntax
+		}
+		u64 = u64*10 + uint64(digit)
+	}
+	return u64, nil
+}
+
 func parseIntFast[T Int](token []byte) (T, error) {
 	var unsigned = ^T(0) >= 0 // true для unsigned T
 
@@ -103,59 +108,52 @@ func parseIntFast[T Int](token []byte) (T, error) {
 	}
 
 	// handle sign
-	if orig[0] == '-' || orig[0] == '+' {
+	firstChar := orig[0]
+	if firstChar == '-' || firstChar == '+' {
 		if unsigned {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
-		token = token[1:]
+		token = orig[1:]
 		if len(token) == 0 {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
 	}
 
 	// trim leading zeros
-	for len(token) > 0 && token[0] == '0' {
-		token = token[1:]
-	}
-	if len(token) == 0 {
-		return 0, nil // was "0...0"
+	for token[0] == '0' {
+		if token = token[1:]; len(token) == 0 {
+			return 0, nil // was "0...0"
+		}
 	}
 
-	// parse to uint64: учитываем, что 10^19 < MaxUint64 < 10^20
+	// parse uint64
 	var u64 uint64
+	var err error
 	switch {
-	case len(token) < 20:
-		// переполнение невозможно
-		for _, digit := range token {
-			digit -= '0'
-			if digit > 9 {
-				return 0, &IntError{string(orig), strconv.ErrSyntax}
-			}
-			u64 = u64*10 + uint64(digit)
+	case len(token) < 20: // переполнение невозможно
+		u64, err = parseUintFastLoop(token, 0, 0)
+		if err != nil {
+			return 0, &IntError{string(orig), err}
 		}
-	case len(token) == 20:
-		// проверяем только последний разряд
-		for _, digit := range token[:19] {
-			digit -= '0'
-			if digit > 9 {
-				return 0, &IntError{string(orig), strconv.ErrSyntax}
-			}
-			u64 = u64*10 + uint64(digit)
+	case len(token) == 20: // проверяем только последний разряд
+		u64, err = parseUintFastLoop(token[:19], 0, 0)
+		if err != nil {
+			return 0, &IntError{string(orig), err}
 		}
-		digit := token[19] - '0'
-		if digit > 9 {
+		twentiethDigit := token[19] - '0'
+		if twentiethDigit > 9 {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
-		if u64 < math.MaxUint64/10 || (u64 == math.MaxUint64/10 && digit <= math.MaxUint64%10) {
-			u64 = u64*10 + uint64(digit)
+		if u64 < math.MaxUint64/10 || (u64 == math.MaxUint64/10 && twentiethDigit <= math.MaxUint64%10) {
+			u64 = u64*10 + uint64(twentiethDigit)
 		} else {
 			return 0, &IntError{string(orig), strconv.ErrRange}
 		}
-	default: // len(token) > 20
-		// гарантированное переполнение
+	default: // len(token) > 20 - гарантированное переполнение
 		return 0, &IntError{string(orig), strconv.ErrRange}
 	}
 
+	// unsigned range check
 	if unsigned {
 		if u64 > uint64(^T(0)) {
 			return 0, &IntError{string(orig), strconv.ErrRange}
@@ -166,7 +164,7 @@ func parseIntFast[T Int](token []byte) (T, error) {
 	// signed range check
 	bits := int(unsafe.Sizeof(T(0))) << 3
 	absMin := uint64(1) << (bits - 1) // |min(T)|
-	if orig[0] == '-' {
+	if firstChar == '-' {
 		if u64 > absMin {
 			return 0, &IntError{string(orig), strconv.ErrRange}
 		}

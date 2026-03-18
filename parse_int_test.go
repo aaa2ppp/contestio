@@ -322,13 +322,11 @@ func Test_parseIntFast(t *testing.T) {
 
 var parseIntRes int64
 
-func Benchmark_parseInt(b *testing.B) {
+func benchmark_parseInt(b *testing.B, generateTokens func(*rand.Rand, int) [][]byte) {
 	b.StopTimer()
 	N := 1 << 20 // 1M
 	rand := rand.New(rand.NewSource(1))
-	nums := generateInts[int](rand, N)
-	input := makeIntsInput(rand, nums, 1)
-	tokens := bytes.Fields(input)
+	tokens := generateTokens(rand, N)
 
 	b.Run("strconv.Atoi", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -361,6 +359,60 @@ func Benchmark_parseInt(b *testing.B) {
 				parseIntRes, _ = parseIntFast[int64](token)
 			}
 		}
+	})
+}
+
+func Benchmark_parseInt(b *testing.B) {
+	benchmark_parseInt(b, func(rand *rand.Rand, N int) [][]byte {
+		nums := generateInts[int](rand, N)
+		input := makeIntsInput(rand, nums, 1)
+		return bytes.Fields(input)
+	})
+}
+
+func generateTokensSize(rand *rand.Rand, N int, size int) [][]byte {
+	var input []byte
+	for i := 0; i < N; i++ {
+		v := rand.Intn(size*2) - size
+		input = strconv.AppendInt(input, int64(v), 10)
+		input = append(input, ' ')
+	}
+	return bytes.Fields(input)
+}
+
+func Benchmark_parseInt2(b *testing.B) {
+	benchmark_parseInt(b, func(rand *rand.Rand, N int) [][]byte {
+		return generateTokensSize(rand, N, 100)
+	})
+}
+
+func Benchmark_parseInt4(b *testing.B) {
+	benchmark_parseInt(b, func(rand *rand.Rand, N int) [][]byte {
+		return generateTokensSize(rand, N, 1_0000)
+	})
+}
+
+func Benchmark_parseInt6(b *testing.B) {
+	benchmark_parseInt(b, func(rand *rand.Rand, N int) [][]byte {
+		return generateTokensSize(rand, N, 100_0000)
+	})
+}
+
+func Benchmark_parseInt8(b *testing.B) {
+	benchmark_parseInt(b, func(rand *rand.Rand, N int) [][]byte {
+		return generateTokensSize(rand, N, 1_0000_0000)
+	})
+}
+
+func Benchmark_parseInt12(b *testing.B) {
+	benchmark_parseInt(b, func(rand *rand.Rand, N int) [][]byte {
+		return generateTokensSize(rand, N, 1_0000_0000_0000)
+	})
+}
+
+func Benchmark_parseInt16(b *testing.B) {
+	benchmark_parseInt(b, func(rand *rand.Rand, N int) [][]byte {
+		return generateTokensSize(rand, N, 1_0000_0000_0000_0000)
 	})
 }
 
