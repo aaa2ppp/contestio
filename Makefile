@@ -103,7 +103,7 @@ merge:
 	
 
 # Создает прекоммит патч
-patch: bump-note-id test
+patch: bump-note-id deps test
 	@mkdir -p $(TMP_DIR)
 	
 	@(set -e; \
