@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:013 -->
+<!-- next-note-id:014 -->
 
 ## Open Questions
 
@@ -92,4 +92,9 @@
   **Solution:** Before renaming the backup to the original file, run a temporary `go build` with the provided `-tags` on the modified code. If the build fails, the operation aborts, preserving the original file. A new `--no-build-check` flag allows skipping this verification when needed. The check is performed both for `inline` and `clear` operations.
 
   Also improved formatting: remove empty lines between inlined declarations.
+
+- **013 [+] Fix `generateInts` in `utils_test.go` to generate correctly length-distributed signed integers (2026-03-18) (made:2026-03-18)**
+
+  **Problem:** The `generateInts` helper used in benchmarks produced numbers with incorrect length distribution for negative values — all negative values were long, skewing benchmark results.  
+  **Solution:** Rewrite `generateInts` to generate random numbers with proper sign and uniform length distribution, ensuring realistic benchmarks.
 

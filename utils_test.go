@@ -9,13 +9,22 @@ import (
 )
 
 func generateInts[T Int](rand *rand.Rand, n int) []T {
-	size := int(unsafe.Sizeof(T(0)))
+	bitSize := int(unsafe.Sizeof(T(0))) << 3
+	signed := ^T(0) < 0
+	if signed {
+		bitSize--
+	}
+
 	nums := make([]T, n)
 	for i := range nums {
-		bits := (rand.Intn(size) + 1) << 3
-		mask := ^(^uint64(0) << bits) | (1 << (size<<3 - 1))
-		num := T(rand.Uint64() & mask)
-		nums[i] = num
+		bits := rand.Intn(bitSize) + 1
+		mask := (uint64(1)<<bits - 1)
+		x := rand.Uint64()
+		n := T(x & mask)
+		if signed && x&(1<<63) != 0 {
+			n = -n
+		}
+		nums[i] = n
 	}
 	return nums
 }
