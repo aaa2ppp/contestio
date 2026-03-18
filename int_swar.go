@@ -1,17 +1,15 @@
 package contestio
 
 import (
+	"encoding/binary"
 	"math"
-	"math/bits"
 	"strconv"
 	"unsafe"
-
-	"golang.org/x/sys/cpu"
 )
 
-// tokenToDigits преобразуем 8 символов за раз. (!) len(token) must be >=8
+// tokenToDigits преобразуем 8 символов за раз. (!) len(token) must be 8
 func tokenToDigits(token []byte) uint64 {
-	digits := *(*uint64)(unsafe.Pointer(&token[0]))
+	digits := binary.BigEndian.Uint64(token)
 	digits ^= 0x3030303030303030
 	return digits
 }
@@ -26,11 +24,8 @@ func checkDigits(digits uint64) bool {
 	return true
 }
 
-// parseDigits обрабатываем по 8 цифр за раз (только три умножения)
+// parseDigits обрабатываем 8 цифр за раз (только три умножения)
 func parseDigits(digits uint64) uint64 {
-	if !cpu.IsBigEndian {
-		digits = bits.ReverseBytes64(digits)
-	}
 	tens := ((digits >> 8) & 0x00FF00FF00FF00FF) * 10
 	pairs := tens + (digits & 0x00FF00FF00FF00FF)
 
@@ -42,47 +37,35 @@ func parseDigits(digits uint64) uint64 {
 	return hi*10000 + lo
 }
 
-func parseIntSwar[T Int](token []byte) (T, error) {
+func parseIntSwar[T Int](token []byte) (T, error) { // len(token) must be >0
 	var unsigned = ^T(0) >= 0 // true для unsigned T
 
 	orig := token
-	if len(orig) == 0 {
+	if len(token) == 0 {
 		return 0, &IntError{string(orig), strconv.ErrSyntax}
 	}
 
 	// handle sign
-	if orig[0] == '-' || orig[0] == '+' {
+	firstChar := orig[0]
+	if firstChar == '-' || firstChar == '+' {
 		if unsigned {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
-		token = token[1:]
+		token = orig[1:]
 		if len(token) == 0 {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
 	}
 
 	// trim leading zeros
-	for len(token) > 0 && token[0] == '0' {
-		token = token[1:]
+	for token[0] == '0' {
+		if token = token[1:]; len(token) == 0 {
+			return 0, nil // was "0...0"
+		}
 	}
 
-	n := len(token)
-	if n == 0 {
-		return 0, nil // was "0...0"
-	}
-	if n > 20 {
-		// гарантированное переполнение
-		return 0, &IntError{string(orig), strconv.ErrRange}
-	}
-
-	var twentiethDigit byte
-	if n == 20 {
-		twentiethDigit = token[19] - '0' // запоминаем 20-ю цифру
-		token = token[:19]               // прячем разряд в котором можем переполнится
-	}
-
+	var i uint
 	var u64 uint64
-	var i int
 
 	// быстро парсим ровно 8 или 16 первых цифр (переполнение невозможно)
 	if len(token) >= 8 {
@@ -102,15 +85,19 @@ func parseIntSwar[T Int](token []byte) (T, error) {
 		}
 	}
 
-	// парсим хвостик (осталось не более 7 цифр)
-	for ; i < len(token); i++ { // переполнение невозможно (20-я цифра спрятана)
-		digit := token[i] - '0'
-		if digit > 9 {
-			return 0, &IntError{string(orig), strconv.ErrSyntax}
+	var err error
+	switch {
+	case len(token) < 20: // переполнение невозможно
+		u64, err = parseUintFastLoop(token, i, u64)
+		if err != nil {
+			return 0, &IntError{string(orig), err}
 		}
-		u64 = u64*10 + uint64(digit)
-	}
-	if n == 20 { // проверяем на переполнение только здесь
+	case len(token) == 20: // проверяем только последний разряд
+		u64, err = parseUintFastLoop(token[:19], i, u64)
+		if err != nil {
+			return 0, &IntError{string(orig), err}
+		}
+		twentiethDigit := token[19] - '0'
 		if twentiethDigit > 9 {
 			return 0, &IntError{string(orig), strconv.ErrSyntax}
 		}
@@ -119,6 +106,8 @@ func parseIntSwar[T Int](token []byte) (T, error) {
 		} else {
 			return 0, &IntError{string(orig), strconv.ErrRange}
 		}
+	default: // len(token) > 20 - гарантированное переполнение
+		return 0, &IntError{string(orig), strconv.ErrRange}
 	}
 
 	if unsigned {
@@ -131,7 +120,7 @@ func parseIntSwar[T Int](token []byte) (T, error) {
 	// signed range check
 	bits := int(unsafe.Sizeof(T(0))) << 3
 	absMin := uint64(1) << (bits - 1) // |min(T)|
-	if orig[0] == '-' {
+	if firstChar == '-' {
 		if u64 > absMin {
 			return 0, &IntError{string(orig), strconv.ErrRange}
 		}

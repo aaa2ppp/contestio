@@ -360,6 +360,14 @@ func benchmark_parseInt(b *testing.B, generateTokens func(*rand.Rand, int) [][]b
 			}
 		}
 	})
+
+	b.Run("parseIntSwar", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, token := range tokens {
+				parseIntRes, _ = parseIntSwar[int64](token)
+			}
+		}
+	})
 }
 
 func Benchmark_parseInt(b *testing.B) {

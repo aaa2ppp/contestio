@@ -1,4 +1,4 @@
-//go:build !parse_int_std && !parse_int_fast
+//go:build !parse_int_std && !parse_int_fast && !parse_int_swar
 
 package contestio
 
