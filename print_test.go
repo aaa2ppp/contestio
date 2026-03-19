@@ -75,7 +75,7 @@ func Test_printSlice(t *testing.T) {
 			var out strings.Builder
 			bw := NewWriterSize(&out, tt.bufSize)
 
-			gotN, gotErr := printSlice(bw, tt.op, appendInt[int], tt.a)
+			gotN, gotErr := printSliceCommon(bw, tt.op, appendInt[int], tt.a)
 			bw.Flush()
 
 			if gotErr != nil {

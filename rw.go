@@ -53,13 +53,13 @@ func (r *Reader) readString(delim byte) (string, error) {
 // (after trimming trailing whitespace) and the error is nil.
 // If no data was read at all (empty input), it returns nil, io.EOF.
 // If a non-EOF error occurs, it returns the data read so far and the error.
-func (r *Reader) ReadBytes(delim byte) ([]byte, error) { return r.readBytes(delim) }
+func (r *Reader) ReadBytes(delim byte) ([]byte, error) { return must(r.readBytes(delim)) }
 
 // ReadString reads until the first occurrence of delim in the input,
 // returning a string of the read data with the delimiter removed
 // and trailing whitespace (space, tab, \r, \n) trimmed.
 // The semantics are otherwise identical to ReadBytes.
-func (r *Reader) ReadString(delim byte) (string, error) { return r.readString(delim) }
+func (r *Reader) ReadString(delim byte) (string, error) { return must(r.readString(delim)) }
 
 // Writer буферизированный писатель.
 type Writer struct {

@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:016 -->
+<!-- next-note-id:017 -->
 
 ## Open Questions
 
@@ -120,3 +120,11 @@
     - This behaviour aligns with typical contest input handling and eliminates manual EOF checks.
 
   **Impact:** All existing code using `bufio.Reader` directly must switch to `contestio.Reader` to benefit; otherwise, behaviour remains unchanged. The embedded types ensure backward compatibility for other methods like `Peek`, `Discard`, etc.
+
+- **016 [+] Optional panic on scan/print errors via build tag `must` (made:2026-03-19)**
+
+  **Problem:** In contest tasks, input is usually well-formed, so any I/O or parsing error is unexpected and should terminate the program. Manually writing `if err != nil { panic(err) }` after every scan/print call is repetitive and clutters the code.
+
+  **Solution:** Introduce a new build tag `must`. When enabled (`-tags=must`), all public scan and print functions panic on any error except `io.EOF` (which is treated as normal end of input). The internal `must` helper wraps the common logic. Without the tag, functions return errors as before.
+
+  This gives users a choice: explicit error handling or automatic panic for simpler code.

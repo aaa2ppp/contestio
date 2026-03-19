@@ -76,7 +76,7 @@ func Test_scanSlice(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
 			out := make([]string, tt.n)
-			gotN, gotErr := scanSlice(br, func(b []byte) (string, error) { return string(b), nil }, out)
+			gotN, gotErr := scanSliceCommon(br, func(b []byte) (string, error) { return string(b), nil }, out)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanSlice() error = %v, want %v", gotErr, tt.wantErr)
 			}
@@ -144,7 +144,7 @@ func Test_scanSliceLn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
-			out, gotErr := scanSliceLn(br, func(b []byte) (string, error) { return string(b), nil }, nil)
+			out, gotErr := scanSliceLnCommon(br, func(b []byte) (string, error) { return string(b), nil }, nil)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanSliceLn() error = %v, want %v", gotErr, tt.wantErr)
 			}
@@ -222,7 +222,7 @@ func Test_scanVars(t *testing.T) {
 			for i := range out {
 				vars[i] = &out[i]
 			}
-			gotN, gotErr := scanVars(br, func(b []byte) (string, error) { return string(b), nil }, vars...)
+			gotN, gotErr := scanVarsCommon(br, false, func(b []byte) (string, error) { return string(b), nil }, vars...)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanVars() error = %v, want %v", gotErr, tt.wantErr)
 			}
@@ -310,7 +310,7 @@ func Test_scanVarsLn(t *testing.T) {
 			for i := range out {
 				vars[i] = &out[i]
 			}
-			gotN, gotErr := scanVarsLn(br, func(b []byte) (string, error) { return string(b), nil }, vars...)
+			gotN, gotErr := scanVarsLnCommon(br, func(b []byte) (string, error) { return string(b), nil }, vars...)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanVarsLn() error = %v, want %v", gotErr, tt.wantErr)
 			}
@@ -388,7 +388,7 @@ func Test_scanVarsLn_behavior(t *testing.T) {
 				ptrs[i] = &vars[i]
 			}
 
-			gotN, err := scanVarsLn(br, parseStr, ptrs...)
+			gotN, err := scanVarsLnCommon(br, parseStr, ptrs...)
 
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("error = %v, want %v", err, tt.wantErr)
@@ -807,7 +807,7 @@ func Test_scanSlice_parseError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
 			out := make([]string, tt.n)
-			gotN, gotErr := scanSlice(br, parse, out)
+			gotN, gotErr := scanSliceCommon(br, parse, out)
 
 			if gotErr == nil || gotErr.Error() != tt.wantErr {
 				t.Errorf("scanSlice() error = %v, want %v", gotErr, tt.wantErr)
@@ -873,7 +873,7 @@ func Test_scanVars_parseError(t *testing.T) {
 			for i := range out {
 				ptrs[i] = &out[i]
 			}
-			gotN, gotErr := scanVars(br, parse, ptrs...)
+			gotN, gotErr := scanVarsCommon(br, false, parse, ptrs...)
 
 			if gotErr == nil || gotErr.Error() != tt.wantErr {
 				t.Errorf("scanVars() error = %v, want %v", gotErr, tt.wantErr)
@@ -891,7 +891,7 @@ func Test_scanVars_parseError(t *testing.T) {
 func Test_scanVarsLn_trailingSpacesWithoutNewline(t *testing.T) {
 	br := NewReader(strings.NewReader("a b c   "))
 	var a, b, c string
-	n, err := scanVarsLn(br, func(b []byte) (string, error) { return string(b), nil }, &a, &b, &c)
+	n, err := scanVarsLnCommon(br, func(b []byte) (string, error) { return string(b), nil }, &a, &b, &c)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

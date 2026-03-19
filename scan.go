@@ -129,17 +129,17 @@ func scanVarsLnCommon[T any](br *Reader, parser func([]byte) (T, error), a ...*T
 }
 
 func scanSlice[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
-	return scanSliceCommon(br, parse, a)
+	return must(scanSliceCommon(br, parse, a))
 }
 
 func scanSliceLn[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
-	return scanSliceLnCommon(br, parse, a)
+	return must(scanSliceLnCommon(br, parse, a))
 }
 
 func scanVars[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
-	return scanVarsCommon(br, false, parser, a...)
+	return must(scanVarsCommon(br, false, parser, a...))
 }
 
 func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
-	return scanVarsLnCommon(br, parser, a...)
+	return must(scanVarsLnCommon(br, parser, a...))
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -86,6 +87,16 @@ func Test_run(t *testing.T) {
 			true,
 		},
 	}
+
+	catchPanic := func(fn func(io.Reader, io.Writer) error, r io.Reader, w io.Writer) (err error) {
+		defer func() {
+			if p := recover(); p != nil {
+				err = fmt.Errorf("*** panic ***: %v", p)
+			}
+		}()
+		return fn(r, w)
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if testing.Verbose() {
@@ -94,7 +105,7 @@ func Test_run(t *testing.T) {
 			}
 
 			out := &bytes.Buffer{}
-			err := run(tt.args.in, out)
+			err := catchPanic(run, tt.args.in, out)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("run() error = %v, wantErr %v", err, tt.wantErr)

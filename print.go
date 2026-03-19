@@ -38,17 +38,17 @@ func printSliceCommon[T any](bw *Writer, op writeOpts, appendVal appendValFunc[T
 var lineWO = WO{Sep: " ", End: "\n"}
 
 func printSlice[T any](bw *Writer, op writeOpts, appendVal appendValFunc[T], a []T) (int, error) {
-	return printSliceCommon(bw, op, appendVal, a)
+	return must(printSliceCommon(bw, op, appendVal, a))
 }
 
 func printSliceLn[T any](bw *Writer, appendVal appendValFunc[T], a []T) (int, error) {
-	return printSliceCommon(bw, lineWO, appendVal, a)
+	return must(printSliceCommon(bw, lineWO, appendVal, a))
 }
 
 func printVals[T any](bw *Writer, op writeOpts, appendVal appendValFunc[T], a ...T) (int, error) {
-	return printSliceCommon(bw, op, appendVal, a)
+	return must(printSliceCommon(bw, op, appendVal, a))
 }
 
 func printValsLn[T any](bw *Writer, appendVal appendValFunc[T], a ...T) (int, error) {
-	return printSliceCommon(bw, lineWO, appendVal, a)
+	return must(printSliceCommon(bw, lineWO, appendVal, a))
 }
