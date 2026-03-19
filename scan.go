@@ -7,13 +7,16 @@ import (
 
 type parseFunc[T any] func([]byte) (T, error)
 
-func scanSlice[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
+func scanSliceCommon[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
 	var eof bool
 	for i := range a {
 		if eof {
-			return i, io.EOF
+			return i, io.ErrUnexpectedEOF
 		}
 		if err := skipSpace(br, false); err != nil {
+			if err == io.EOF {
+				return i, io.ErrUnexpectedEOF
+			}
 			return i, err
 		}
 		token, err := nextToken(br)
@@ -35,13 +38,13 @@ func scanSlice[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
 	return len(a), nil
 }
 
-func scanSliceLn[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
+func scanSliceLnCommon[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
 	var eof bool
 	n := 0
 	for {
 		if eof {
 			if n == 0 {
-				return a, io.EOF
+				return a, io.ErrUnexpectedEOF
 			}
 			return a, nil
 		}
@@ -80,9 +83,12 @@ func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...
 	var eof bool
 	for i := range a {
 		if eof {
-			return i, io.EOF
+			return i, io.ErrUnexpectedEOF
 		}
 		if err := skipSpace(br, stopAtEol); err != nil {
+			if err == io.EOF {
+				return i, io.ErrUnexpectedEOF
+			}
 			return i, err
 		}
 		token, err := nextToken(br)
@@ -91,7 +97,7 @@ func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...
 				return i, err
 			}
 			if len(token) == 0 {
-				return i, io.EOF
+				return i, io.ErrUnexpectedEOF
 			}
 			eof = true
 		}
@@ -104,14 +110,10 @@ func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...
 	return len(a), nil
 }
 
-func scanVars[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
-	return scanVarsCommon(br, false, parser, a...)
-}
-
 // ErrExpectedEOL возвращается, если не был прочитан ожидаемый конец строки
 var ErrExpectedEOL = errors.New("expected end of line")
 
-func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
+func scanVarsLnCommon[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
 	n, err := scanVarsCommon(br, true, parser, a...)
 	if err != nil {
 		return n, err
@@ -124,4 +126,20 @@ func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int
 		return n, err
 	}
 	return n, ErrExpectedEOL
+}
+
+func scanSlice[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
+	return scanSliceCommon(br, parse, a)
+}
+
+func scanSliceLn[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
+	return scanSliceLnCommon(br, parse, a)
+}
+
+func scanVars[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
+	return scanVarsCommon(br, false, parser, a...)
+}
+
+func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
+	return scanVarsLnCommon(br, parser, a...)
 }

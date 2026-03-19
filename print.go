@@ -10,7 +10,7 @@ type writeOpts = WO
 
 type appendValFunc[T any] func([]byte, T) []byte
 
-func printSlice[T any](bw *Writer, op writeOpts, appendVal appendValFunc[T], a []T) (int, error) {
+func printSliceCommon[T any](bw *Writer, op writeOpts, appendVal appendValFunc[T], a []T) (int, error) {
 	var err error
 	var buf []byte
 
@@ -37,14 +37,18 @@ func printSlice[T any](bw *Writer, op writeOpts, appendVal appendValFunc[T], a [
 
 var lineWO = WO{Sep: " ", End: "\n"}
 
+func printSlice[T any](bw *Writer, op writeOpts, appendVal appendValFunc[T], a []T) (int, error) {
+	return printSliceCommon(bw, op, appendVal, a)
+}
+
 func printSliceLn[T any](bw *Writer, appendVal appendValFunc[T], a []T) (int, error) {
-	return printSlice(bw, lineWO, appendVal, a)
+	return printSliceCommon(bw, lineWO, appendVal, a)
 }
 
 func printVals[T any](bw *Writer, op writeOpts, appendVal appendValFunc[T], a ...T) (int, error) {
-	return printSlice(bw, op, appendVal, a)
+	return printSliceCommon(bw, op, appendVal, a)
 }
 
 func printValsLn[T any](bw *Writer, appendVal appendValFunc[T], a ...T) (int, error) {
-	return printSlice(bw, lineWO, appendVal, a)
+	return printSliceCommon(bw, lineWO, appendVal, a)
 }
