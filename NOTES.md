@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:015 -->
+<!-- next-note-id:016 -->
 
 ## Open Questions
 
@@ -105,3 +105,18 @@
   **Solution:** Replace with a single `parseInt` function that uses a fast manual loop for numbers shorter than 20 digits and falls back to `strconv.ParseUint` for longer inputs. This balances performance and simplicity, and is not worse than `strconv.Atoi` for typical contest use. All build tags and related code are removed; documentation is updated accordingly.
 
   This change simplifies the codebase without compromising practical performance.  Advanced techniques (e.g., SWAR) are being explored separately but are unlikely to be merged due to code size considerations.
+
+- **015 [+] Override ReadBytes/ReadString in custom Reader/Writer (made:2026-03-19)**
+
+  **Problem:** Standard `bufio.Reader.ReadBytes`/`ReadString` return trailing delimiters and don't trim whitespace, requiring extra code in contests. Also, they return `io.EOF` even when data was read, forcing boilerplate checks like `if err == io.EOF && len(data) > 0`.
+
+  **Solution:** 
+    - Introduce `contestio.Reader` and `Writer` that embed `*bufio.Reader` and `*bufio.Writer` respectively, preserving all original methods.
+    - Override `ReadBytes` and `ReadString` to:
+      * Remove the delimiter if present.
+      * Trim trailing whitespace (space, tab, `\r`, `\n`).
+      * Return `io.EOF` **only** when no data was read at all.
+      * Otherwise ignore EOF and return the data (even if empty after trimming).
+    - This behaviour aligns with typical contest input handling and eliminates manual EOF checks.
+
+  **Impact:** All existing code using `bufio.Reader` directly must switch to `contestio.Reader` to benefit; otherwise, behaviour remains unchanged. The embedded types ensure backward compatibility for other methods like `Peek`, `Discard`, etc.
