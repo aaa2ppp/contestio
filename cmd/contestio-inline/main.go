@@ -75,7 +75,7 @@ func run(args []string) error {
 
 	if clear {
 		if err := clearInliningFromFile(absFilePath, libPath, opts); err != nil {
-			log.Fatal(err)
+			return err
 		}
 		log.Printf("Код библиотеки удалён из %s\n", fileName)
 		return nil
@@ -232,7 +232,7 @@ func clearInliningFromFile(fileName string, pkgPath string, opts inlineOpts) err
 	}
 
 	importPos := findLinePrefix(input, "import ")
-	if packagePos > importPos {
+	if importPos != -1 && packagePos > importPos {
 		return fmt.Errorf("Not found correct import in file %q", fileName)
 	}
 
@@ -384,18 +384,18 @@ func printNodeSet(w io.Writer, pkg *packages.Package, nodeSet map[ast.Node]bool)
 			fmt.Fprintf(os.Stderr, "Ошибка форматирования: %v\n", err)
 			continue
 		}
-		w.Write(cutEmptyLines(buf.Bytes()))
+		w.Write(removeBlankLines(buf.Bytes()))
 	}
 
 	return printCloseInlineTag(w, pkg.PkgPath)
 }
 
-// cutEmptyLines works inplace uses the space of the same slice for writing
-func cutEmptyLines(b []byte) []byte {
+// removeBlankLines works inplace uses the space of the same slice for writing
+func removeBlankLines(b []byte) []byte {
 	lines := bytes.Split(b, []byte("\n"))
 	b = b[:0]
 	for _, l := range lines {
-		if len(l) == 0 || len(l) == 1 && l[0] == '\r' {
+		if len(bytes.TrimRight(l, " \t\r\n")) == 0 {
 			continue
 		}
 		b = append(b, l...)
