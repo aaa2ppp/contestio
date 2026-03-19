@@ -233,87 +233,29 @@ func test_parseInt(t *testing.T, parser func(any) parserFunc) {
 	}
 }
 
-func Test_ParseIntStd(t *testing.T) {
+func Test_parseInt(t *testing.T) {
 	test_parseInt(t, func(expected any) parserFunc {
 		switch expected.(type) {
 		case int:
-			return func(b []byte) (any, error) { return parseIntStd[int](b) }
+			return func(b []byte) (any, error) { return parseInt[int](b) }
 		case int8:
-			return func(b []byte) (any, error) { return parseIntStd[int8](b) }
+			return func(b []byte) (any, error) { return parseInt[int8](b) }
 		case int16:
-			return func(b []byte) (any, error) { return parseIntStd[int16](b) }
+			return func(b []byte) (any, error) { return parseInt[int16](b) }
 		case int32:
-			return func(b []byte) (any, error) { return parseIntStd[int32](b) }
+			return func(b []byte) (any, error) { return parseInt[int32](b) }
 		case int64:
-			return func(b []byte) (any, error) { return parseIntStd[int64](b) }
+			return func(b []byte) (any, error) { return parseInt[int64](b) }
 		case uint:
-			return func(b []byte) (any, error) { return parseIntStd[uint](b) }
+			return func(b []byte) (any, error) { return parseInt[uint](b) }
 		case uint8:
-			return func(b []byte) (any, error) { return parseIntStd[uint8](b) }
+			return func(b []byte) (any, error) { return parseInt[uint8](b) }
 		case uint16:
-			return func(b []byte) (any, error) { return parseIntStd[uint16](b) }
+			return func(b []byte) (any, error) { return parseInt[uint16](b) }
 		case uint32:
-			return func(b []byte) (any, error) { return parseIntStd[uint32](b) }
+			return func(b []byte) (any, error) { return parseInt[uint32](b) }
 		case uint64:
-			return func(b []byte) (any, error) { return parseIntStd[uint64](b) }
-		default:
-			panic("unsupported type")
-		}
-	})
-}
-
-func Test_parseIntBase(t *testing.T) {
-	test_parseInt(t, func(expected any) parserFunc {
-		switch expected.(type) {
-		case int:
-			return func(b []byte) (any, error) { return parseIntBase[int](b) }
-		case int8:
-			return func(b []byte) (any, error) { return parseIntBase[int8](b) }
-		case int16:
-			return func(b []byte) (any, error) { return parseIntBase[int16](b) }
-		case int32:
-			return func(b []byte) (any, error) { return parseIntBase[int32](b) }
-		case int64:
-			return func(b []byte) (any, error) { return parseIntBase[int64](b) }
-		case uint:
-			return func(b []byte) (any, error) { return parseIntBase[uint](b) }
-		case uint8:
-			return func(b []byte) (any, error) { return parseIntBase[uint8](b) }
-		case uint16:
-			return func(b []byte) (any, error) { return parseIntBase[uint16](b) }
-		case uint32:
-			return func(b []byte) (any, error) { return parseIntBase[uint32](b) }
-		case uint64:
-			return func(b []byte) (any, error) { return parseIntBase[uint64](b) }
-		default:
-			panic("unsupported type")
-		}
-	})
-}
-
-func Test_parseIntFast(t *testing.T) {
-	test_parseInt(t, func(expected any) parserFunc {
-		switch expected.(type) {
-		case int:
-			return func(b []byte) (any, error) { return parseIntFast[int](b) }
-		case int8:
-			return func(b []byte) (any, error) { return parseIntFast[int8](b) }
-		case int16:
-			return func(b []byte) (any, error) { return parseIntFast[int16](b) }
-		case int32:
-			return func(b []byte) (any, error) { return parseIntFast[int32](b) }
-		case int64:
-			return func(b []byte) (any, error) { return parseIntFast[int64](b) }
-		case uint:
-			return func(b []byte) (any, error) { return parseIntFast[uint](b) }
-		case uint8:
-			return func(b []byte) (any, error) { return parseIntFast[uint8](b) }
-		case uint16:
-			return func(b []byte) (any, error) { return parseIntFast[uint16](b) }
-		case uint32:
-			return func(b []byte) (any, error) { return parseIntFast[uint32](b) }
-		case uint64:
-			return func(b []byte) (any, error) { return parseIntFast[uint64](b) }
+			return func(b []byte) (any, error) { return parseInt[uint64](b) }
 		default:
 			panic("unsupported type")
 		}
@@ -337,26 +279,10 @@ func benchmark_parseInt(b *testing.B, generateTokens func(*rand.Rand, int) [][]b
 		}
 	})
 
-	b.Run("parseIntStd", func(b *testing.B) {
+	b.Run("parseInt", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, token := range tokens {
-				parseIntRes, _ = parseIntStd[int64](token)
-			}
-		}
-	})
-
-	b.Run("parseIntBase", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			for _, token := range tokens {
-				parseIntRes, _ = parseIntBase[int64](token)
-			}
-		}
-	})
-
-	b.Run("parseIntFast", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			for _, token := range tokens {
-				parseIntRes, _ = parseIntFast[int64](token)
+				parseIntRes, _ = parseInt[int64](token)
 			}
 		}
 	})
@@ -430,40 +356,20 @@ func fuzz_parseInt[T Int](f *testing.F) {
 			t.Fatalf("len(tokens)(%d) != len(nums)(%d)", len(tokens), len(nums))
 		}
 		// t.Logf("%s", tokens)
-		std := make([]T, 0, len(tokens))
-		base := make([]T, 0, len(tokens))
-		fast := make([]T, 0, len(tokens))
+		res := make([]T, 0, len(tokens))
 		var (
 			v   T
 			err error
 		)
 		for _, token := range tokens {
-			v, err = parseIntStd[T](token)
+			v, err = parseInt[T](token)
 			if err != nil {
 				t.Fatalf("std: %v", err)
 			}
-			std = append(std, v)
-
-			v, err = parseIntBase[T](token)
-			if err != nil {
-				t.Fatalf("base: %v", err)
-			}
-			base = append(base, v)
-
-			v, err = parseIntFast[T](token)
-			if err != nil {
-				t.Fatalf("fast: %v", err)
-			}
-			fast = append(fast, v)
+			res = append(res, v)
 		}
-		if !reflect.DeepEqual(std, nums) {
-			t.Fatalf("std parsing is broken!\ninput: %s,\nres:  %v", input, std)
-		}
-		if !reflect.DeepEqual(base, nums) {
-			t.Fatalf("base parsing is broken!\ninput: %s,\nres:  %v", input, base)
-		}
-		if !reflect.DeepEqual(fast, nums) {
-			t.Fatalf("fast parsing is broken!\ninput: %s,\nres:  %v", input, fast)
+		if !reflect.DeepEqual(res, nums) {
+			t.Fatalf("std parsing is broken!\ninput: %s,\nres:  %v", input, res)
 		}
 	})
 }

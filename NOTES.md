@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:014 -->
+<!-- next-note-id:015 -->
 
 ## Open Questions
 
@@ -98,3 +98,10 @@
   **Problem:** The `generateInts` helper used in benchmarks produced numbers with incorrect length distribution for negative values — all negative values were long, skewing benchmark results.  
   **Solution:** Rewrite `generateInts` to generate random numbers with proper sign and uniform length distribution, ensuring realistic benchmarks.
 
+- **014 [+] Unify parseInt implementations and remove build tags (made:2026-03-19)**
+
+  **Problem:** The library previously offered three separate integer parsers (`std`, `base`, `fast`) selectable via build tags. This increased complexity and forced users to make an unnecessary choice.
+
+  **Solution:** Replace with a single `parseInt` function that uses a fast manual loop for numbers shorter than 20 digits and falls back to `strconv.ParseUint` for longer inputs. This balances performance and simplicity, and is not worse than `strconv.Atoi` for typical contest use. All build tags and related code are removed; documentation is updated accordingly.
+
+  This change simplifies the codebase without compromising practical performance.  Advanced techniques (e.g., SWAR) are being explored separately but are unlikely to be merged due to code size considerations.

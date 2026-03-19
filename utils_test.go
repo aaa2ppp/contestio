@@ -8,6 +8,17 @@ import (
 	"unsafe"
 )
 
+func parseIntStd[T Int](b []byte) (T, error) {
+	signed := ^T(0) < 0
+	bitSize := int(unsafe.Sizeof(T(0))) << 3
+	if signed {
+		v, err := strconv.ParseInt(unsafeString(b), 10, bitSize)
+		return T(v), err
+	}
+	v, err := strconv.ParseUint(unsafeString(b), 10, bitSize)
+	return T(v), err
+}
+
 func generateInts[T Int](rand *rand.Rand, n int) []T {
 	bitSize := int(unsafe.Sizeof(T(0))) << 3
 	signed := ^T(0) < 0
