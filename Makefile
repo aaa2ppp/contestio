@@ -125,7 +125,14 @@ patch: bump-note-id deps test
 	@echo "Patch saved to $(TMP_DIR)/$(DST).patch"
 
 
-.PHONY: bump-note-id
+.PHONY: bump-note-id notes notes-sort
 bump-note-id:
 	@next=$$(grep -Eo '[0-9]{3,} \[.?\]' NOTES.md | sort -n | tail -1 | awk '{printf "%03d", $$1+1}'); \
 	sed -i "s/<!-- next-note-id:[0-9]\{3,\} -->/<!-- next-note-id:$$next -->/" NOTES.md
+
+notes:
+	@grep -E '^(- \*\*[0-9]{3}|##|<!-- next-note-id:)' NOTES.md
+
+notes-sort:
+	@grep -E '^\- \*\*[0-9]{3}' NOTES.md | sort && \
+	grep '<!-- next-note-id:' NOTES.md

@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:017 -->
+<!-- next-note-id:021 -->
 
 ## Open Questions
 
@@ -10,7 +10,7 @@
   Currently, this functionality is implemented via private functions `skipSpace`/`skipToNewLine` (used inside `scanXXX`).  
   Users may want to explicitly use them in their code, but I haven't encountered any such cases yet.
 
-- **005 [ ] **Move library code out of root?** (2026-03-09)**
+- **005 [ ] Move library code out of root? (2026-03-09)**
 
   Currently all library files are in the root. Should we move them to a subdirectory to keep root clean?  
   If so, what name? I dislike plain `lib`. Perhaps just keep as is and move examples to `examples/`?
@@ -22,6 +22,17 @@
   The solution seems heavyweight (performance overhead) and clunky (requires implementing an interface).
   Currently, this functionality is isolated from the main codebase with the build tag `-tags=sugar`.
   Should we delete it or merge it into the main codebase?
+
+- **017 [ ] Add streaming iterators? (2026-03-21)**
+
+  Currently we have `ScanInts`, `ScanFloats`, `ScanWords` that fill or create slices. For streaming scenarios where storing the whole slice is unnecessary, iterators would allow processing elements one by one without allocating the slice.
+
+  **Key questions:**
+  - Are iterators needed at all, or does the slice API already cover most use cases?
+  - For `Word`, we could return a string backed by the internal buffer (zero‑copy, no allocation), but this ties the string’s lifetime to the buffer. Is this safety trade‑off acceptable? Alternatively, copying per token would allocate, defeating the streaming benefit.
+  - Should iterators be part of the main library or remain an experimental feature?
+
+  **API style** must be Go 1.23 iterators (`iter.Seq[T]`) to enable direct use with `range`.  
 
 - **008 [ ] Should nextToken/scanXxx advance position on read/parse errors? (2026-03-11)**
 
@@ -61,6 +72,27 @@
   English version of the README.
 
 - **003 [ ] Translate all inline documentation to English (2026-03-09)**
+
+- **018 [ ] Improve contestio-inline to accept directory argument (2026-03-21)**
+
+  Currently, `contestio-inline` optionally accepts a file path; it defaults to `main.go` in the current directory. Enhance it to also accept a directory path: if the argument is a directory, look for `main.go` inside it. This will make it more convenient when working with projects where the main file is nested.
+
+- **019 [ ] Replace overridden ReadBytes/ReadString with ScanBytes/ScanString functions (2026-03-21)**
+
+  Currently, `contestio.Reader` embeds `*bufio.Reader` and overrides `ReadBytes`/`ReadString` to provide trimmed tokens without delimiters and better EOF handling. This hides the original methods, which may be confusing and limiting for users who need the original behaviour.
+
+  **Plan:**
+    - Remove the overridden methods from `Reader`.
+    - Keep `Reader` as an embedded `*bufio.Reader` (no method shadowing).
+    - Provide package-level functions `ScanBytes(r *Reader, delim byte) ([]byte, error)` and `ScanString(r *Reader, delim byte) (string, error)` that implement the desired logic (trim spaces, drop delimiter, EOF only if no bytes read).
+
+  This restores full access to `bufio.Reader` methods while keeping the convenience functions for token scanning. It also aligns with the library's pattern of using `ScanXXX` functions for higher-level operations.
+
+- **020 [ ] Mixed scan: two-stage implementation (2026-03-22)**
+
+  Provide a convenient API for scanning mixed types (e.g., `ScanMixed(r, &name, &age, &score)`). 
+  **Stage 1:** Implement `ScanMixed` using `any` arguments (no reflection) under the `sugar` build tag. This allows users to test the API in real tasks.  
+  **Stage 2:** If the API proves convenient, extend `contestio-inline` to generate specialised functions for each call signature and replace the calls during inlining, achieving maximal performance without interfaces in the final code. The original calls are restored on `-clear`.
 
 ## Made
 
