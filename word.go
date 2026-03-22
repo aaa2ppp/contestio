@@ -1,20 +1,35 @@
 package contestio
 
-type Word interface{ ~string }
+func parseWord[T ~string](token []byte) (T, error) { return T(token), nil }
 
-func parseWord[T Word](token []byte) (T, error) { return T(token), nil }
-func appendWord[T Word](b []byte, v T) []byte   { return append(b, v...) }
+func ScanWords[T ~string](br *Reader, a []T) (int, error)    { return scanSlice(br, parseWord, a) }
+func ScanWordsLn[T ~string](br *Reader, a []T) ([]T, error)  { return scanSliceLn(br, parseWord, a) }
+func ScanWord[T ~string](br *Reader, a ...*T) (int, error)   { return scanVars(br, parseWord, a...) }
+func ScanWordLn[T ~string](br *Reader, a ...*T) (int, error) { return scanVarsLn(br, parseWord, a...) }
 
-func ScanWords[T Word](br *Reader, a []T) (int, error)    { return scanSlice(br, parseWord, a) }
-func ScanWordsLn[T Word](br *Reader, a []T) ([]T, error)  { return scanSliceLn(br, parseWord, a) }
-func ScanWord[T Word](br *Reader, a ...*T) (int, error)   { return scanVars(br, parseWord, a...) }
-func ScanWordLn[T Word](br *Reader, a ...*T) (int, error) { return scanVarsLn(br, parseWord, a...) }
-
-func PrintWords[T Word](bw *Writer, op WO, a []T) (int, error) {
-	return printSlice(bw, op, appendWord, a)
+func printWordsCommon[T ~string](bw *Writer, op writeOpts, a []T) (int, error) {
+	_, _ = bw.WriteString(op.Begin)
+	for i, v := range a {
+		if i > 0 {
+			_, _ = bw.WriteString(op.Sep)
+		}
+		if _, err := bw.WriteString(string(v)); err != nil {
+			return i, err
+		}
+	}
+	_, err := bw.WriteString(op.End)
+	return len(a), err
 }
-func PrintWordsLn[T Word](bw *Writer, a []T) (int, error) { return printSliceLn(bw, appendWord, a) }
-func PrintWord[T Word](bw *Writer, op WO, a ...T) (int, error) {
-	return printVals(bw, op, appendWord, a...)
+
+func PrintWords[T ~string](bw *Writer, op WO, a []T) (int, error) {
+	return must(printWordsCommon(bw, op, a))
 }
-func PrintWordLn[T Word](bw *Writer, a ...T) (int, error) { return printValsLn(bw, appendWord, a...) }
+func PrintWordsLn[T ~string](bw *Writer, a []T) (int, error) {
+	return must(printWordsCommon(bw, lineWO, a))
+}
+func PrintWord[T ~string](bw *Writer, op WO, a ...T) (int, error) {
+	return must(printWordsCommon(bw, op, a))
+}
+func PrintWordLn[T ~string](bw *Writer, a ...T) (int, error) {
+	return must(printWordsCommon(bw, lineWO, a))
+}
