@@ -4,7 +4,7 @@ BENCH_DIR ?= ./benchmarks
 
 GOEXE := $(shell go env GOEXE)
 TEST_FLAGS ?= -tags=dev,sugar
-BENCH_FLAGS ?= -benchmem 
+BENCH_FLAGS ?= -tags=dev,sugar -benchmem 
 
 MERGE_FILES ?= Makefile go.mod go.sum *.go *.sh *.md *.txt
 

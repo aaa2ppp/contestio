@@ -48,9 +48,6 @@
 
   Should we change the behavior to **not advance** on parse errors (i.e., leave the reader pointing at the beginning of the offending token)? Or should we keep the current behavior but document it clearly? This decision affects all scanning functions and the `nextToken` helper.
 
-- **011 [ ] Replace custom type example with code generator? (2026-03-12)**
-
-  The current example (`custom_type.go`) demonstrates how to create a custom type by copying and modifying library code. This requires forking the library, which is not ideal. Should we replace it with a `go generate` based generator that produces the necessary wrapper functions for any user-defined type? Or should we remove the example altogether and rely on the generic `ScanSlice`/`PrintSlice` (under sugar tag) as the primary way to handle custom types? The sugar approach already provides interfaces for custom types, but it's hidden behind a build tag and may have performance overhead. Decision needed.
 
   
 ## Ideas
@@ -72,17 +69,6 @@
   English version of the README.
 
 - **003 [ ] Translate all inline documentation to English (2026-03-09)**
-
-- **019 [ ] Replace overridden ReadBytes/ReadString with ScanBytes/ScanString functions (2026-03-21)**
-
-  Currently, `contestio.Reader` embeds `*bufio.Reader` and overrides `ReadBytes`/`ReadString` to provide trimmed tokens without delimiters and better EOF handling. This hides the original methods, which may be confusing and limiting for users who need the original behaviour.
-
-  **Plan:**
-    - Remove the overridden methods from `Reader`.
-    - Keep `Reader` as an embedded `*bufio.Reader` (no method shadowing).
-    - Provide package-level functions `ScanBytes(r *Reader, delim byte) ([]byte, error)` and `ScanString(r *Reader, delim byte) (string, error)` that implement the desired logic (trim spaces, drop delimiter, EOF only if no bytes read).
-
-  This restores full access to `bufio.Reader` methods while keeping the convenience functions for token scanning. It also aligns with the library's pattern of using `ScanXXX` functions for higher-level operations.
 
 - **020 [ ] Mixed scan: two-stage implementation (2026-03-22)**
 
@@ -112,6 +98,12 @@
   Currently, `Sign` and `Unsig` are only used to define `Int`. They are not used elsewhere in the library. Should we remove them and define `Int` directly as `~int | ~int8 | ... | ~uint | ...`? Removing would reduce public API surface, but might limit future extensibility. Decision needed.  
 
   I threw them away because I'm annoyed by these lines in the inlining.
+
+- **011 [-] Replace custom type example with code generator? (2026-03-12) (made:2026-03-22)**
+
+  The current example (`custom_type.go`) demonstrates how to create a custom type by copying and modifying library code. This requires forking the library, which is not ideal. Should we replace it with a `go generate` based generator that produces the necessary wrapper functions for any user-defined type? Or should we remove the example altogether and rely on the generic `ScanSlice`/`PrintSlice` (under sugar tag) as the primary way to handle custom types? The sugar approach already provides interfaces for custom types, but it's hidden behind a build tag and may have performance overhead. Decision needed.
+
+  `custom_type.go` and `custom_type_sugar.go` have been removed.
 
 - **012 [+] Verify compilation after inlining/clearing before replacing original file (2026-03-13) (made:2026-03-13)**
 
@@ -160,3 +152,15 @@
 - **018 [+] Improve contestio-inline to accept directory argument (2026-03-21) (made:2026-03-22)**
 
   Currently, `contestio-inline` optionally accepts a file path; it defaults to `main.go` in the current directory. Enhance it to also accept a directory path: if the argument is a directory, look for `main.go` inside it. This will make it more convenient when working with projects where the main file is nested.
+
+- **019 [+] Replace overridden ReadBytes/ReadString with ScanBytes/ScanString functions (2026-03-21) (made:2026-03-21)**
+
+  Currently, `contestio.Reader` embeds `*bufio.Reader` and overrides `ReadBytes`/`ReadString` to provide trimmed tokens without delimiters and better EOF handling. This hides the original methods, which may be confusing and limiting for users who need the original behaviour.
+
+  **Plan:**
+    - Remove the overridden methods from `Reader`.
+    - Keep `Reader` as an embedded `*bufio.Reader` (no method shadowing).
+    - Provide package-level functions `ScanBytes(r *Reader, delim byte) ([]byte, error)` and `ScanString(r *Reader, delim byte) (string, error)` that implement the desired logic (trim spaces, drop delimiter, EOF only if no bytes read).
+
+  This restores full access to `bufio.Reader` methods while keeping the convenience functions for token scanning. It also aligns with the library's pattern of using `ScanXXX` functions for higher-level operations.
+
