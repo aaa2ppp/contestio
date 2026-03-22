@@ -66,6 +66,13 @@ func run(args []string) error {
 	fileName := "main.go"
 	if len(posArgs) > 0 {
 		fileName = posArgs[0]
+		info, err := os.Stat(fileName)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			fileName = filepath.Join(fileName, "main.go")
+		}
 	}
 	absFilePath, err := filepath.Abs(fileName)
 	if err != nil {

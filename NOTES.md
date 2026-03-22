@@ -73,10 +73,6 @@
 
 - **003 [ ] Translate all inline documentation to English (2026-03-09)**
 
-- **018 [ ] Improve contestio-inline to accept directory argument (2026-03-21)**
-
-  Currently, `contestio-inline` optionally accepts a file path; it defaults to `main.go` in the current directory. Enhance it to also accept a directory path: if the argument is a directory, look for `main.go` inside it. This will make it more convenient when working with projects where the main file is nested.
-
 - **019 [ ] Replace overridden ReadBytes/ReadString with ScanBytes/ScanString functions (2026-03-21)**
 
   Currently, `contestio.Reader` embeds `*bufio.Reader` and overrides `ReadBytes`/`ReadString` to provide trimmed tokens without delimiters and better EOF handling. This hides the original methods, which may be confusing and limiting for users who need the original behaviour.
@@ -160,3 +156,7 @@
   **Solution:** Introduce a new build tag `must`. When enabled (`-tags=must`), all public scan and print functions panic on any error except `io.EOF` (which is treated as normal end of input). The internal `must` helper wraps the common logic. Without the tag, functions return errors as before.
 
   This gives users a choice: explicit error handling or automatic panic for simpler code.
+
+- **018 [+] Improve contestio-inline to accept directory argument (2026-03-21) (made:2026-03-22)**
+
+  Currently, `contestio-inline` optionally accepts a file path; it defaults to `main.go` in the current directory. Enhance it to also accept a directory path: if the argument is a directory, look for `main.go` inside it. This will make it more convenient when working with projects where the main file is nested.
