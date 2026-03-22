@@ -99,7 +99,7 @@ func ScanInts[T Int](br *Reader, a []T) (int, error) { return scanSlice(br, pars
 
 // ScanIntsLn считывает целые числа из текущей строки до её конца и добавляет их в слайс a.
 // Возвращает итоговый слайс и ошибку (может быть io.EOF).
-func ScanIntsLn[T Int](br *Reader, a []T) ([]T, error) { return scanSliceLn(br, parseInt, a) }
+func ScanIntsLn[S ~[]T, T Int](br *Reader, a S) (S, error) { return scanSliceLn(br, parseInt, a) }
 
 // ScanInt считывает одно или несколько целых чисел из br и сохраняет их по указателям a.
 // Возвращает количество считанных чисел и ошибку.

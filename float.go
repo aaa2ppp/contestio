@@ -25,7 +25,7 @@ func ScanFloats[T Float](br *Reader, a []T) (int, error) { return scanSlice(br, 
 
 // ScanFloatsLn считывает числа с плавающей точкой из текущей строки до её конца и добавляет их в слайс a.
 // Возвращает итоговый слайс и ошибку.
-func ScanFloatsLn[T Float](br *Reader, a []T) ([]T, error) { return scanSliceLn(br, parseFloat, a) }
+func ScanFloatsLn[S ~[]T, T Float](br *Reader, a S) (S, error) { return scanSliceLn(br, parseFloat, a) }
 
 // ScanFloat считывает одно или несколько чисел с плавающей точкой из br и сохраняет их по указателям a.
 // Возвращает количество считанных чисел и ошибку.

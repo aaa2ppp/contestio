@@ -9,32 +9,32 @@ package contestio
 // NOTE: При использовании этих функций, будет одна аллокация 16 байт на создание интерфейса.
 // И небольшая просадка по производительности из-за использования виртуальных методов.
 
-type Slice[T any] interface {
-	Slice() []T
+type Slice[S ~[]T, T any] interface {
+	Slice() S
 }
 
-type Parser[T any] interface {
-	Slice[T]
+type Parser[S ~[]T, T any] interface {
+	Slice[S, T]
 	Parse([]byte) (T, error)
 }
 
-func ScanSlice[T any](br *Reader, a Parser[T]) (int, error) {
+func ScanSlice[S ~[]T, T any](br *Reader, a Parser[S, T]) (int, error) {
 	return scanSlice(br, a.Parse, a.Slice())
 }
 
-func ScanSliceLn[T any](br *Reader, a Parser[T]) ([]T, error) {
+func ScanSliceLn[S ~[]T, T any](br *Reader, a Parser[S, T]) (S, error) {
 	return scanSliceLn(br, a.Parse, a.Slice())
 }
 
-type ValAppender[T any] interface {
-	Slice[T]
+type ValAppender[S ~[]T, T any] interface {
+	Slice[S, T]
 	AppendVal(b []byte, v T) []byte
 }
 
-func PrintSlice[T any](bw *Writer, op WO, a ValAppender[T]) (int, error) {
+func PrintSlice[S ~[]T, T any](bw *Writer, op WO, a ValAppender[S, T]) (int, error) {
 	return printSlice(bw, op, a.AppendVal, a.Slice())
 }
 
-func PrintSliceLn[T any](bw *Writer, a ValAppender[T]) (int, error) {
+func PrintSliceLn[S ~[]T, T any](bw *Writer, a ValAppender[S, T]) (int, error) {
 	return printSliceLn(bw, a.AppendVal, a.Slice())
 }

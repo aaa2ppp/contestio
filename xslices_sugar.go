@@ -9,12 +9,12 @@ import "slices"
 
 // Grow возвращает слайс в который можно добавить не менее n элементов без
 // дополнительных аллокаций. Паникует, если n<0.
-func Grow[T any, S ~[]T](s S, n int) S { return slices.Grow(s, n) }
+func Grow[S ~[]T, T any](s S, n int) S { return slices.Grow(s, n) }
 
 // Resize возвращает слайс размера n. Если емкость исходноко слайса меньше n,
 // слайс будет расширен с помощью Grow, если меньше, то усечен до n с обнулением
 // элементов с индексом от n до конца слайса. Паникует, если n<0.
-func Resize[T any, S ~[]T](s S, n int) S {
+func Resize[S ~[]T, T any](s S, n int) S {
 	if n < 0 {
 		panic("cannot be negative")
 	}

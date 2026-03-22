@@ -2,10 +2,10 @@ package contestio
 
 func parseWord[T ~string](token []byte) (T, error) { return T(token), nil }
 
-func ScanWords[T ~string](br *Reader, a []T) (int, error)    { return scanSlice(br, parseWord, a) }
-func ScanWordsLn[T ~string](br *Reader, a []T) ([]T, error)  { return scanSliceLn(br, parseWord, a) }
-func ScanWord[T ~string](br *Reader, a ...*T) (int, error)   { return scanVars(br, parseWord, a...) }
-func ScanWordLn[T ~string](br *Reader, a ...*T) (int, error) { return scanVarsLn(br, parseWord, a...) }
+func ScanWords[T ~string](br *Reader, a []T) (int, error)       { return scanSlice(br, parseWord, a) }
+func ScanWordsLn[S ~[]T, T ~string](br *Reader, a S) (S, error) { return scanSliceLn(br, parseWord, a) }
+func ScanWord[T ~string](br *Reader, a ...*T) (int, error)      { return scanVars(br, parseWord, a...) }
+func ScanWordLn[T ~string](br *Reader, a ...*T) (int, error)    { return scanVarsLn(br, parseWord, a...) }
 
 func printWordsCommon[T ~string](bw *Writer, op writeOpts, a []T) (int, error) {
 	_, _ = bw.WriteString(op.Begin)
