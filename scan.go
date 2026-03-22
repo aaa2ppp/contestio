@@ -8,26 +8,21 @@ import (
 type parseFunc[T any] func([]byte) (T, error)
 
 func scanSliceCommon[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
-	var eof bool
 	for i := range a {
-		if eof {
-			return i, io.ErrUnexpectedEOF
-		}
-		if err := skipSpace(br, false); err != nil {
+		err := skipSpace(br, false) // don't stop at end of line
+		if err != nil {
 			if err == io.EOF {
-				return i, io.ErrUnexpectedEOF
+				if i == 0 { // return EOF only if no tokens were read
+					return 0, io.EOF
+				}
+				return i, io.ErrUnexpectedEOF // not all requested data was read
 			}
 			return i, err
 		}
-		token, err := nextToken(br)
-		if err != nil {
-			if err != io.EOF {
-				return i, err
-			}
-			if len(token) == 0 {
-				return i, io.EOF
-			}
-			eof = true
+		// success 'skipSpace' ensures that there is at least one non-white character
+		token, err := nextToken(br) // always not empty
+		if err != nil && err != io.EOF {
+			return i, err
 		}
 		v, err := parse(token)
 		if err != nil {
@@ -39,36 +34,25 @@ func scanSliceCommon[T any](br *Reader, parse parseFunc[T], a []T) (int, error) 
 }
 
 func scanSliceLnCommon[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
-	var eof bool
 	n := 0
 	for {
-		if eof {
-			if n == 0 {
-				return a, io.ErrUnexpectedEOF
-			}
-			return a, nil
-		}
-		if err := skipSpace(br, true); err != nil {
+		err := skipSpace(br, true) // stop at end of line
+		if err != nil {
 			if err == EOL {
 				return a, nil
 			}
 			if err == io.EOF {
-				if n == 0 {
+				if n == 0 { // return EOF only if no tokens were read
 					return a, io.EOF
 				}
-				return a, nil
+				return a, nil // otherwise interpret as end of line
 			}
 			return a, err
 		}
-		token, err := nextToken(br)
-		if err != nil {
-			if err != io.EOF {
-				return a, err
-			}
-			if len(token) == 0 {
-				return a, io.EOF
-			}
-			eof = true
+		// success 'skipSpace' ensures that there is at least one non-white character
+		token, err := nextToken(br) // always not empty
+		if err != nil && err != io.EOF {
+			return a, err
 		}
 		v, err := parse(token)
 		if err != nil {
@@ -80,26 +64,21 @@ func scanSliceLnCommon[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error
 }
 
 func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...*T) (int, error) {
-	var eof bool
 	for i := range a {
-		if eof {
-			return i, io.ErrUnexpectedEOF
-		}
-		if err := skipSpace(br, stopAtEol); err != nil {
+		err := skipSpace(br, stopAtEol)
+		if err != nil {
 			if err == io.EOF {
-				return i, io.ErrUnexpectedEOF
+				if i == 0 { // return EOF only if no tokens were read
+					return 0, io.EOF
+				}
+				return i, io.ErrUnexpectedEOF // not all requested data was read
 			}
 			return i, err
 		}
-		token, err := nextToken(br)
-		if err != nil {
-			if err != io.EOF {
-				return i, err
-			}
-			if len(token) == 0 {
-				return i, io.ErrUnexpectedEOF
-			}
-			eof = true
+		// success 'skipSpace' ensures that there is at least one non-white character
+		token, err := nextToken(br) // always not empty
+		if err != nil && err != io.EOF {
+			return i, err
 		}
 		v, err := parse(token)
 		if err != nil {
@@ -113,16 +92,16 @@ func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...
 // ErrExpectedEOL возвращается, если не был прочитан ожидаемый конец строки
 var ErrExpectedEOL = errors.New("expected end of line")
 
-func scanVarsLnCommon[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
-	n, err := scanVarsCommon(br, true, parser, a...)
+func scanVarsLnCommon[T any](br *Reader, parse parseFunc[T], a ...*T) (int, error) {
+	n, err := scanVarsCommon(br, true, parse, a...) // scan to end of line
 	if err != nil {
 		return n, err
 	}
-	err = skipSpace(br, true)
-	if err == EOL || err == io.EOF {
-		return n, nil
-	}
+	err = skipSpace(br, true) // stop at end of line
 	if err != nil {
+		if err == EOL || err == io.EOF { // interpret EOF as end of line
+			return n, nil
+		}
 		return n, err
 	}
 	return n, ErrExpectedEOL

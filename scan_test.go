@@ -8,83 +8,132 @@ import (
 	"io"
 	"math/rand"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 )
 
+func godParser(b []byte) (string, error) { return string(b), nil }
+
+var parseError = errors.New("parse error")
+
+func badParser(failAt int) parseFunc[string] {
+	count := 0
+	return func(b []byte) (string, error) {
+		count++
+		if count == failAt {
+			return "", parseError
+		}
+		return godParser(b)
+	}
+}
+
 func Test_scanSlice(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		n       int
-		want    []string
+		parse   func([]byte) (string, error)
+		a       []string
+		wantA   []string
+		wantN   int
 		wantErr error
 	}{
 		{
-			"simple",
-			"1 2 3 4 5",
-			5,
+			"empty input",
+			"",
+			godParser,
 			[]string{"1", "2", "3", "4", "5"},
-			nil,
-		},
-		{
-			"simple sasha",
-			"Shla Sasha po shosse i sosala sushku.",
-			7,
-			[]string{"Shla", "Sasha", "po", "shosse", "i", "sosala", "sushku."},
-			nil,
-		},
-		{
-			"multiple spaces",
-			"1  2   3    4     5",
-			5,
 			[]string{"1", "2", "3", "4", "5"},
-			nil,
+			0,
+			io.EOF,
 		},
 		{
-			"various spaces",
-			"1\t\r\n2",
-			2,
-			[]string{"1", "2"},
+			"only spaces",
+			" \t\r\n",
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5"},
+			0,
+			io.EOF,
+		},
+		{
+			"one token",
+			"one",
+			godParser,
+			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
 			"leading spaces",
-			"   1",
-			1,
+			" \t\r\none",
+			godParser,
 			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
-			"final spaces",
-			"1   ",
-			1,
+			"trailing spaces",
+			"one \t\r\n",
+			godParser,
 			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
-			"too few elements",
-			"1 2 3 4 5",
-			6,
+			"correct input",
+			"one two three four five six",
+			godParser,
 			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "four", "five"},
+			5,
+			nil,
+		},
+		{
+			"incomplete input",
+			"one two three",
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "4", "5"},
+			3,
 			io.ErrUnexpectedEOF,
 		},
+		{
+			"parse error at 1",
+			"one two three four five six",
+			badParser(1),
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5"},
+			0,
+			parseError,
+		},
+		{
+			"parse error at 4",
+			"one two three four five six",
+			badParser(4),
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "4", "5"},
+			3,
+			parseError,
+		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
-			out := make([]string, tt.n)
-			gotN, gotErr := scanSliceCommon(br, func(b []byte) (string, error) { return string(b), nil }, out)
+			gotA := slices.Clone(tt.a)
+			gotN, gotErr := scanSliceCommon(br, tt.parse, gotA)
 			if !errors.Is(gotErr, tt.wantErr) {
-				t.Errorf("scanSlice() error = %v, want %v", gotErr, tt.wantErr)
+				t.Errorf("scanSliceCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}
-			if gotN != len(tt.want) {
-				t.Errorf("scanSlice() n = %v, want %v", gotN, len(tt.want))
+			if gotN != tt.wantN {
+				t.Errorf("scanSliceCommon() n = %v, want %v", gotN, tt.wantN)
 			}
-			if !reflect.DeepEqual(out[:min(gotN, len(out))], tt.want) {
-				t.Errorf("scanSlice() out = %q, want %q", out, tt.want)
+			if !reflect.DeepEqual(gotA, tt.wantA) {
+				t.Errorf("scanSliceCommon() out = %q, want %q", gotA, tt.wantA)
 			}
 		})
 	}
@@ -94,62 +143,148 @@ func Test_scanSliceLn(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		want    []string
+		parse   func([]byte) (string, error)
+		a       []string
+		n       int
+		wantA   []string
 		wantErr error
 	}{
 		{
-			"simple",
-			"1 2 3 4 5\n",
-			[]string{"1", "2", "3", "4", "5"},
+			"empty input",
+			"",
+			godParser,
+			nil,
+			0,
+			nil,
+			io.EOF,
+		},
+		{
+			"only spaces (except LF)",
+			" \t\r",
+			godParser,
+			nil,
+			0,
+			nil,
+			io.EOF,
+		},
+		{
+			"only LF",
+			"\n",
+			godParser,
+			nil,
+			0,
+			nil,
 			nil,
 		},
 		{
-			"simple sasha",
-			"Shla Sasha po shosse i sosala sushku.\n",
-			[]string{"Shla", "Sasha", "po", "shosse", "i", "sosala", "sushku."},
+			"only spaces ended with LF",
+			" \t\r\n",
+			godParser,
+			nil,
+			0,
+			nil,
 			nil,
 		},
 		{
-			"multiple spaces",
-			"1  2   3    4     5\n",
-			[]string{"1", "2", "3", "4", "5"},
+			"one token (EOL)",
+			"one\n",
+			godParser,
+			nil,
+			0,
+			[]string{"one"},
 			nil,
 		},
 		{
-			"various spaces",
-			"1\t\r 2\n",
-			[]string{"1", "2"},
+			"one token (EOF)",
+			"one",
+			godParser,
+			nil,
+			0,
+			[]string{"one"},
 			nil,
 		},
 		{
 			"leading spaces",
-			"   1\n",
-			[]string{"1"},
+			" \t\rone\n",
+			godParser,
+			nil,
+			0,
+			[]string{"one"},
 			nil,
 		},
 		{
-			"final spaces",
-			"1   \n",
-			[]string{"1"},
+			"trailing spaces",
+			"one \t\r\n",
+			godParser,
+			nil,
+			0,
+			[]string{"one"},
 			nil,
 		},
 		{
-			"no lf",
-			"1 2 3 4 5",
-			[]string{"1", "2", "3", "4", "5"},
+			"trailing spaces (EOF)",
+			"one \t\r",
+			godParser,
 			nil,
+			0,
+			[]string{"one"},
+			nil,
+		},
+		{
+			"correct input",
+			"one two three four five\nsix",
+			godParser,
+			nil,
+			0,
+			[]string{"one", "two", "three", "four", "five"},
+			nil,
+		},
+		{
+			"correct input (append)",
+			"three four five\nsix",
+			godParser,
+			[]string{"1", "2", "3", "4", "5", "6"},
+			2,
+			[]string{"1", "2", "three", "four", "five"},
+			nil,
+		},
+		{
+			"parse error at 1",
+			"one two three four five\nsix",
+			badParser(1),
+			nil,
+			0,
+			nil,
+			parseError,
+		},
+		{
+			"parse error at 4",
+			"one two three four five\nsix",
+			badParser(4),
+			nil,
+			0,
+			[]string{"one", "two", "three"},
+			parseError,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
-			out, gotErr := scanSliceLnCommon(br, func(b []byte) (string, error) { return string(b), nil }, nil)
-			if !errors.Is(gotErr, tt.wantErr) {
-				t.Errorf("scanSliceLn() error = %v, want %v", gotErr, tt.wantErr)
+			var a []string
+			if tt.a != nil {
+				a = slices.Clone(tt.a)
 			}
-			if !reflect.DeepEqual(out, tt.want) {
-				t.Errorf("scanSliceLn() out = %q, want %q", out, tt.want)
+			gotA, gotErr := scanSliceLnCommon(br, tt.parse, a[:tt.n])
+			if !errors.Is(gotErr, tt.wantErr) {
+				t.Errorf("scanSliceLnCommon() error = %v, want %v", gotErr, tt.wantErr)
+			}
+			if !reflect.DeepEqual(gotA, tt.wantA) {
+				t.Errorf("scanSliceLnCommon() = %q, want %q", gotA, tt.wantA)
+			}
+			if n := len(gotA); n > 0 && n <= len(a) {
+				if &a[0] != &gotA[0] {
+					t.Errorf("scanSliceLnCommon(): expected same slice")
+				}
 			}
 		})
 	}
@@ -157,80 +292,133 @@ func Test_scanSliceLn(t *testing.T) {
 
 func Test_scanVars(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		n       int
-		want    []string
-		wantErr error
+		name      string
+		input     string
+		stopAtEol bool
+		parse     func([]byte) (string, error)
+		a         []string
+		wantA     []string
+		wantN     int
+		wantErr   error
 	}{
 		{
-			"simple",
-			"1 2 3 4 5",
-			5,
+			"empty input",
+			"",
+			false,
+			godParser,
 			[]string{"1", "2", "3", "4", "5"},
-			nil,
-		},
-		{
-			"simple sasha",
-			"Shla Sasha po shosse i sosala sushku.",
-			7,
-			[]string{"Shla", "Sasha", "po", "shosse", "i", "sosala", "sushku."},
-			nil,
-		},
-		{
-			"multiple spaces",
-			"1  2   3    4     5",
-			5,
 			[]string{"1", "2", "3", "4", "5"},
-			nil,
+			0,
+			io.EOF,
 		},
 		{
-			"various spaces",
-			"1\t\r\n2",
-			2,
-			[]string{"1", "2"},
+			"only spaces",
+			" \t\r\n",
+			false,
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5"},
+			0,
+			io.EOF,
+		},
+		{
+			"one token",
+			"one",
+			false,
+			godParser,
+			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
 			"leading spaces",
-			"   1",
-			1,
+			" \t\r\none",
+			false,
+			godParser,
 			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
-			"final spaces",
-			"1   ",
-			1,
+			"trailing spaces",
+			"one \t\r\n",
+			false,
+			godParser,
 			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
-			"too few elements",
-			"1 2 3 4 5",
-			6,
+			"correct input",
+			"one two three four five six",
+			false,
+			godParser,
 			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "four", "five"},
+			5,
+			nil,
+		},
+		{
+			"incomplete input",
+			"one two three",
+			false,
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "4", "5"},
+			3,
 			io.ErrUnexpectedEOF,
 		},
+		{
+			"incomplete input (stop at eol)",
+			"one two three\nfour five six",
+			true, // stop at eol
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "4", "5"},
+			3,
+			EOL,
+		},
+		{
+			"parse error at 1",
+			"one two three four five six",
+			false,
+			badParser(1),
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5"},
+			0,
+			parseError,
+		},
+		{
+			"parse error at 4",
+			"one two three four five six",
+			false,
+			badParser(4),
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "4", "5"},
+			3,
+			parseError,
+		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
-			out := make([]string, tt.n)
-			vars := make([]*string, tt.n)
-			for i := range out {
-				vars[i] = &out[i]
+			gotA := slices.Clone(tt.a)
+			p := make([]*string, len(gotA))
+			for i := range gotA {
+				p[i] = &gotA[i]
 			}
-			gotN, gotErr := scanVarsCommon(br, false, func(b []byte) (string, error) { return string(b), nil }, vars...)
+			gotN, gotErr := scanVarsCommon(br, tt.stopAtEol, tt.parse, p...)
 			if !errors.Is(gotErr, tt.wantErr) {
-				t.Errorf("scanVars() error = %v, want %v", gotErr, tt.wantErr)
+				t.Errorf("scanVarsCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}
-			if gotN != len(tt.want) {
-				t.Errorf("scanVars() n = %v, want %v", gotN, len(tt.want))
+			if gotN != tt.wantN {
+				t.Errorf("scanVarsCommon() n = %v, want %v", gotN, tt.wantN)
 			}
-			if !reflect.DeepEqual(out[:min(gotN, len(out))], tt.want) {
-				t.Errorf("scanVars() out = %q, want %q", out, tt.want)
+			if !reflect.DeepEqual(gotA, tt.wantA) {
+				t.Errorf("scanVarsCommon() out = %q, want %q", gotA, tt.wantA)
 			}
 		})
 	}
@@ -240,201 +428,171 @@ func Test_scanVarsLn(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		n       int
-		want    []string
+		parse   func([]byte) (string, error)
+		a       []string
+		wantA   []string
+		wantN   int
 		wantErr error
 	}{
 		{
-			"simple",
-			"1 2 3 4 5\n",
-			5,
+			"empty input",
+			"",
+			godParser,
 			[]string{"1", "2", "3", "4", "5"},
-			nil,
-		},
-		{
-			"simple sasha",
-			"Shla Sasha po shosse i sosala sushku.\n",
-			7,
-			[]string{"Shla", "Sasha", "po", "shosse", "i", "sosala", "sushku."},
-			nil,
-		},
-		{
-			"multiple spaces",
-			"1  2   3    4     5\n",
-			5,
 			[]string{"1", "2", "3", "4", "5"},
+			0,
+			io.EOF,
+		},
+		{
+			"only spaces (except LF)",
+			" \t\r",
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5"},
+			0,
+			io.EOF,
+		},
+		{
+			"only LF",
+			"\n",
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5"},
+			0,
+			EOL,
+		},
+		{
+			"only spaces ended with LF",
+			" \t\r\n",
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5"},
+			0,
+			EOL,
+		},
+		{
+			"one token (EOL)",
+			"one\n",
+			godParser,
+			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
-			"various spaces",
-			"1\t\r 2\n",
-			2,
-			[]string{"1", "2"},
+			"one token (EOF)",
+			"one",
+			godParser,
+			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
 			"leading spaces",
-			"   1\n",
-			1,
+			" \t\rone",
+			godParser,
 			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
-			"final spaces",
-			"1   \n",
-			1,
+			"trailing spaces (EOL)",
+			"one \t\r\n",
+			godParser,
 			[]string{"1"},
+			[]string{"one"},
+			1,
 			nil,
 		},
 		{
-			"too few elements",
-			"1 2 3 4 5\n 6",
-			6,
+			"trailing spaces (EOF)",
+			"one \t\r",
+			godParser,
+			[]string{"1"},
+			[]string{"one"},
+			1,
+			nil,
+		},
+		{
+			"correct input",
+			"one two three four five\nsix",
+			godParser,
 			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "four", "five"},
+			5,
+			nil,
+		},
+		{
+			"incomplete input (EOF)",
+			"one two three",
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "4", "5"},
+			3,
+			io.ErrUnexpectedEOF,
+		},
+		{
+			"incomplete input (EOL)",
+			"one two three\nfour five six",
+			godParser,
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "4", "5"},
+			3,
 			EOL,
 		},
 		{
-			"no lf",
-			"1 2 3 4 5",
-			5,
+			"expected eol",
+			"one two three four five six",
+			godParser,
 			[]string{"1", "2", "3", "4", "5"},
-			nil,
+			[]string{"one", "two", "three", "four", "five"},
+			5,
+			ErrExpectedEOL,
+		},
+		{
+			"parse error at 1",
+			"one two three four five\nsix",
+			badParser(1),
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"1", "2", "3", "4", "5"},
+			0,
+			parseError,
+		},
+		{
+			"parse error at 4",
+			"one two three four five\nsix",
+			badParser(4),
+			[]string{"1", "2", "3", "4", "5"},
+			[]string{"one", "two", "three", "4", "5"},
+			3,
+			parseError,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
-			out := make([]string, tt.n)
-			vars := make([]*string, tt.n)
-			for i := range out {
-				vars[i] = &out[i]
+			gotA := slices.Clone(tt.a)
+			p := make([]*string, len(gotA))
+			for i := range gotA {
+				p[i] = &gotA[i]
 			}
-			gotN, gotErr := scanVarsLnCommon(br, func(b []byte) (string, error) { return string(b), nil }, vars...)
+			gotN, gotErr := scanVarsLnCommon(br, tt.parse, p...)
 			if !errors.Is(gotErr, tt.wantErr) {
-				t.Errorf("scanVarsLn() error = %v, want %v", gotErr, tt.wantErr)
-			}
-			if gotN != len(tt.want) {
-				t.Errorf("scanVarsLn() n = %v, want %v", gotN, len(tt.want))
-			}
-			if !reflect.DeepEqual(out[:min(gotN, len(out))], tt.want) {
-				t.Errorf("scanVarsLn() out = %q, want %q", out, tt.want)
-			}
-		})
-	}
-}
-
-func Test_scanSliceLn_behavior(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		want    []string
-		wantErr error
-	}{
-		{"normal line with newline", "a b c\n", []string{"a", "b", "c"}, nil},
-		{"no newline at end", "a b c", []string{"a", "b", "c"}, nil},
-		{"empty line", "\n", nil, nil},
-		{"empty input", "", nil, io.EOF},
-		{"only spaces with newline", "   \n", nil, nil},
-		{"only spaces no newline", "   ", nil, io.EOF},
-		{"single token then EOF", "hello", []string{"hello"}, nil},
-		{"multiple tokens then EOF", "hello world", []string{"hello", "world"}, nil},
-		{"tokens with trailing spaces", "a b   ", []string{"a", "b"}, nil}, // trailing spaces, no newline
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			br := NewReader(strings.NewReader(tt.input))
-			got, err := scanSliceLn(br, func(b []byte) (string, error) { return string(b), nil }, nil)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("error = %v, want %v", err, tt.wantErr)
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("got %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_scanVarsLn_behavior(t *testing.T) {
-	parseStr := func(b []byte) (string, error) { return string(b), nil }
-
-	tests := []struct {
-		name     string
-		input    string
-		request  int      // сколько переменных запрашиваем
-		wantVars []string // ожидаемые значения после чтения (непрочитанные останутся пустыми)
-		wantN    int
-		wantErr  error
-	}{
-		{"normal line with newline", "a b c\n", 3, []string{"a", "b", "c"}, 3, nil},
-		{"no newline at end", "a b c", 3, []string{"a", "b", "c"}, 3, nil},
-		{"partial data (less than requested)", "a b", 3, []string{"a", "b", ""}, 2, io.ErrUnexpectedEOF},
-		{"empty line", "\n", 1, []string{""}, 0, EOL},
-		{"empty input", "", 1, []string{""}, 0, io.ErrUnexpectedEOF},
-		{"extra spaces after", "a b c   \n", 3, []string{"a", "b", "c"}, 3, nil},
-		{"extra text after (garbage)", "a b c extra\n", 3, []string{"a", "b", "c"}, 3, ErrExpectedEOL},
-		{"EOF after all tokens", "a b c", 3, []string{"a", "b", "c"}, 3, nil},
-		{"more tokens than requested", "a b c d e\n", 3, []string{"a", "b", "c"}, 3, ErrExpectedEOL},
-		{"request zero variables", "", 0, []string{}, 0, nil},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			br := NewReader(strings.NewReader(tt.input))
-			vars := make([]string, tt.request)
-			ptrs := make([]*string, tt.request)
-			for i := range vars {
-				ptrs[i] = &vars[i]
-			}
-
-			gotN, err := scanVarsLnCommon(br, parseStr, ptrs...)
-
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("error = %v, want %v", err, tt.wantErr)
+				t.Errorf("scanVarsLnCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}
 			if gotN != tt.wantN {
-				t.Errorf("n = %d, want %d", gotN, tt.wantN)
+				t.Errorf("scanVarsLnCommon() n = %v, want %v", gotN, tt.wantN)
 			}
-			for i := 0; i < tt.wantN; i++ {
-				if vars[i] != tt.wantVars[i] {
-					t.Errorf("var[%d] = %q, want %q", i, vars[i], tt.wantVars[i])
-				}
-			}
-			// Если было запрошено больше, чем прочитано, оставшиеся должны остаться пустыми (zero value)
-			for i := tt.wantN; i < tt.request; i++ {
-				if vars[i] != "" {
-					t.Errorf("var[%d] should be empty, got %q", i, vars[i])
-				}
+			if !reflect.DeepEqual(gotA, tt.wantA) {
+				t.Errorf("scanVarsLnCommon() out = %q, want %q", gotA, tt.wantA)
 			}
 		})
-	}
-}
-
-func Test_readMultipleLines(t *testing.T) {
-	input := "1 2\n3 4\n5 6"
-	br := NewReader(strings.NewReader(input))
-	var result [][]string
-
-	for {
-		line, err := scanSliceLn(br, func(b []byte) (string, error) { return string(b), nil }, nil)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		result = append(result, line)
-	}
-
-	want := [][]string{{"1", "2"}, {"3", "4"}, {"5", "6"}}
-	if !reflect.DeepEqual(result, want) {
-		t.Errorf("got %v, want %v", result, want)
 	}
 }
 
 func Benchmark_scanInt(b *testing.B) {
-	b.StopTimer()
 	N := 1 << 20 // 1M
 	maxSpace := 5
 	rand := rand.New(rand.NewSource(1))
@@ -450,10 +608,7 @@ func Benchmark_scanInt(b *testing.B) {
 			b.StartTimer()
 
 			for i := range res {
-				if _, err := fmt.Fscan(br, &res[i]); err != nil {
-					b.Errorf("scan: %d: %v", i, err)
-					return
-				}
+				fmt.Fscan(br, &res[i])
 			}
 		}
 	})
@@ -465,23 +620,10 @@ func Benchmark_scanInt(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			s, err := br.ReadString('\n')
-			if err != nil {
-				b.Errorf("read string: %v", err)
-				return
-			}
-
+			s, _ := br.ReadString('\n')
 			tokens := strings.Fields(s)
-			if len(tokens) != N {
-				b.Errorf("got tokens %d, want %d", len(tokens), N)
-			}
-
 			for i, token := range tokens {
-				v, err := strconv.Atoi(token)
-				if err != nil {
-					b.Errorf("parse: %d: %v", i, err)
-					return
-				}
+				v, _ := strconv.Atoi(token)
 				res[i] = v
 			}
 		}
@@ -497,11 +639,7 @@ func Benchmark_scanInt(b *testing.B) {
 			b.StartTimer()
 
 			for i := 0; i < len(res) && sc.Scan(); i++ {
-				v, err := strconv.Atoi(sc.Text())
-				if err != nil {
-					b.Errorf("parse: %d: %v", i, err)
-					return
-				}
+				v, _ := strconv.Atoi(sc.Text())
 				res[i] = v
 			}
 		}
@@ -514,12 +652,7 @@ func Benchmark_scanInt(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			n, err := scanSlice(br, parseInt, res)
-
-			if n != N || err != nil {
-				b.Errorf("unexpected result (%v, %v), want (%d, nil)", n, err, N)
-				return
-			}
+			scanSlice(br, parseInt, res)
 		}
 	})
 
@@ -530,12 +663,7 @@ func Benchmark_scanInt(b *testing.B) {
 			res := memory[:0]
 			b.StartTimer()
 
-			res, err := scanSliceLn(br, parseInt, res[:0])
-
-			if n := len(res); n != N || err != nil {
-				b.Errorf("unexpected result (%v, %v), want (%d, nil)", n, err, N)
-				return
-			}
+			res, _ = scanSliceLnCommon(br, parseInt, res[:0])
 		}
 	})
 
@@ -547,29 +675,17 @@ func Benchmark_scanInt(b *testing.B) {
 			b.StartTimer()
 
 			var v1, v2, v3 int
-			for i := 0; i+3 < N; i += 3 {
-				n, err := scanVars(br, parseInt, &v1, &v2, &v3)
-				if err != nil {
-					b.Errorf("scan: %d: %d", i+n, err)
-					return
-				}
+			for i, n := 0, N/3; i < n; i++ {
+				scanVarsCommon(br, false, parseInt, &v1, &v2, &v3)
 				res = append(res, v1, v2, v3)
 			}
-			n, err := scanVars(br, parseInt, &v1, &v2, &v3)
-			if err != nil && err != io.EOF {
-				b.Errorf("scan: %d: %d", i+n, err)
-				return
-			}
-			switch n {
+			switch N % 3 {
 			case 1:
+				scanVarsCommon(br, false, parseInt, &v1)
 				res = append(res, v1)
 			case 2:
+				scanVarsCommon(br, false, parseInt, &v1, &v2)
 				res = append(res, v1, v2)
-			}
-
-			if n := len(res); n != N || (err != nil && err != io.EOF) {
-				b.Errorf("unexpected result (%v, %v), want (%d, nil)", n, err, N)
-				return
 			}
 		}
 	})
@@ -592,10 +708,7 @@ func Benchmark_scanFloat(b *testing.B) {
 			b.StartTimer()
 
 			for i := range res {
-				if _, err := fmt.Fscan(br, &res[i]); err != nil {
-					b.Errorf("scan: %d: %v", i, err)
-					return
-				}
+				fmt.Fscan(br, &res[i])
 			}
 		}
 	})
@@ -607,23 +720,11 @@ func Benchmark_scanFloat(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			s, err := br.ReadString('\n')
-			if err != nil {
-				b.Errorf("read string: %v", err)
-				return
-			}
-
+			s, _ := br.ReadString('\n')
 			tokens := strings.Fields(s)
-			if len(tokens) != N {
-				b.Errorf("got tokens %d, want %d", len(tokens), N)
-			}
 
 			for i, token := range tokens {
-				v, err := strconv.ParseFloat(token, 64)
-				if err != nil {
-					b.Errorf("parse: %d: %v", i, err)
-					return
-				}
+				v, _ := strconv.ParseFloat(token, 64)
 				res[i] = v
 			}
 		}
@@ -639,12 +740,7 @@ func Benchmark_scanFloat(b *testing.B) {
 			b.StartTimer()
 
 			for i := 0; i < len(res) && sc.Scan(); i++ {
-				token := sc.Text()
-				v, err := strconv.ParseFloat(token, 64)
-				if err != nil {
-					b.Errorf("parse: %d: %v", i, err)
-					return
-				}
+				v, _ := strconv.ParseFloat(sc.Text(), 64)
 				res[i] = v
 			}
 		}
@@ -657,12 +753,7 @@ func Benchmark_scanFloat(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			n, err := scanSlice(br, parseFloat, res)
-
-			if n != N || err != nil {
-				b.Errorf("unexpected result (%v, %v), want (%d, nil)", n, err, N)
-				return
-			}
+			scanSliceCommon(br, parseFloat, res)
 		}
 	})
 
@@ -673,12 +764,7 @@ func Benchmark_scanFloat(b *testing.B) {
 			res := memory[:0]
 			b.StartTimer()
 
-			res, err := scanSliceLn(br, parseFloat, res[:0])
-
-			if n := len(res); n != N || err != nil {
-				b.Errorf("unexpected result (%v, %v), want (%d, nil)", n, err, N)
-				return
-			}
+			res, _ = scanSliceLnCommon(br, parseFloat, res[:0])
 		}
 	})
 
@@ -690,36 +776,23 @@ func Benchmark_scanFloat(b *testing.B) {
 			b.StartTimer()
 
 			var v1, v2, v3 float64
-			for i := 0; i+3 < N; i += 3 {
-				n, err := scanVars(br, parseFloat, &v1, &v2, &v3)
-				if err != nil {
-					b.Errorf("scan: %d: %d", i+n, err)
-					return
-				}
+			for i, n := 0, N/3; i < n; i++ {
+				scanVarsCommon(br, false, parseFloat, &v1, &v2, &v3)
 				res = append(res, v1, v2, v3)
 			}
-			n, err := scanVars(br, parseFloat, &v1, &v2, &v3)
-			if err != nil && err != io.EOF {
-				b.Errorf("scan: %d: %d", i+n, err)
-				return
-			}
-			switch n {
+			switch N % 3 {
 			case 1:
+				scanVarsCommon(br, false, parseFloat, &v1)
 				res = append(res, v1)
 			case 2:
+				scanVarsCommon(br, false, parseFloat, &v1, &v2)
 				res = append(res, v1, v2)
-			}
-
-			if n := len(res); n != N || (err != nil && err != io.EOF) {
-				b.Errorf("unexpected result (%v, %v), want (%d, nil)", n, err, N)
-				return
 			}
 		}
 	})
 }
 
 func Benchmark_scanSlice(b *testing.B) {
-	b.StopTimer()
 	N := 1 << 20 // 1M
 	maxSpace := 5
 	rand := rand.New(rand.NewSource(1))
@@ -734,12 +807,17 @@ func Benchmark_scanSlice(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			n, err := scanSlice(br, parseIntStd, res)
+			scanSlice(br, parseIntStd, res)
+		}
+	})
+	b.Run("parseIntAtoi", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			br := NewReader(bytes.NewReader(input))
+			res := memory[:N]
+			b.StartTimer()
 
-			if n != N || err != nil {
-				b.Errorf("unexpected result (%v, %v), want (%d, nil)", n, err, N)
-				return
-			}
+			scanSlice(br, func(b []byte) (int, error) { return strconv.Atoi(unsafeString(b)) }, res)
 		}
 	})
 	b.Run("parseInt", func(b *testing.B) {
@@ -749,156 +827,7 @@ func Benchmark_scanSlice(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			n, err := scanSlice(br, parseInt, res)
-
-			if n != N || err != nil {
-				b.Errorf("unexpected result (%v, %v), want (%d, nil)", n, err, N)
-				return
-			}
+			scanSlice(br, parseInt, res)
 		}
 	})
-}
-
-func Test_scanSlice_parseError(t *testing.T) {
-	// Парсер, который успешно читает "ok", но ошибается на "bad"
-	parse := func(b []byte) (string, error) {
-		s := string(b)
-		if s == "bad" {
-			return "", errors.New("parse error")
-		}
-		return s, nil
-	}
-
-	tests := []struct {
-		name     string
-		input    string
-		n        int
-		wantN    int
-		wantVals []string
-		wantErr  string
-	}{
-		{
-			name:     "error on first token",
-			input:    "bad 2 3",
-			n:        3,
-			wantN:    0,
-			wantVals: []string{"", "", ""},
-			wantErr:  "parse error",
-		},
-		{
-			name:     "error on second token",
-			input:    "1 bad 3",
-			n:        3,
-			wantN:    1,
-			wantVals: []string{"1", "", ""},
-			wantErr:  "parse error",
-		},
-		{
-			name:     "error on last token",
-			input:    "1 2 bad",
-			n:        3,
-			wantN:    2,
-			wantVals: []string{"1", "2", ""},
-			wantErr:  "parse error",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			br := NewReader(strings.NewReader(tt.input))
-			out := make([]string, tt.n)
-			gotN, gotErr := scanSliceCommon(br, parse, out)
-
-			if gotErr == nil || gotErr.Error() != tt.wantErr {
-				t.Errorf("scanSlice() error = %v, want %v", gotErr, tt.wantErr)
-			}
-			if gotN != tt.wantN {
-				t.Errorf("scanSlice() n = %d, want %d", gotN, tt.wantN)
-			}
-			if !reflect.DeepEqual(out, tt.wantVals) {
-				t.Errorf("scanSlice() out = %v, want %v", out, tt.wantVals)
-			}
-		})
-	}
-}
-
-func Test_scanVars_parseError(t *testing.T) {
-	parse := func(b []byte) (string, error) {
-		s := string(b)
-		if s == "bad" {
-			return "", errors.New("parse error")
-		}
-		return s, nil
-	}
-
-	tests := []struct {
-		name     string
-		input    string
-		n        int
-		wantN    int
-		wantVals []string
-		wantErr  string
-	}{
-		{
-			name:     "error on first token",
-			input:    "bad 2 3",
-			n:        3,
-			wantN:    0,
-			wantVals: []string{"", "", ""},
-			wantErr:  "parse error",
-		},
-		{
-			name:     "error on second token",
-			input:    "1 bad 3",
-			n:        3,
-			wantN:    1,
-			wantVals: []string{"1", "", ""},
-			wantErr:  "parse error",
-		},
-		{
-			name:     "error on last token",
-			input:    "1 2 bad",
-			n:        3,
-			wantN:    2,
-			wantVals: []string{"1", "2", ""},
-			wantErr:  "parse error",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			br := NewReader(strings.NewReader(tt.input))
-			out := make([]string, tt.n)
-			ptrs := make([]*string, tt.n)
-			for i := range out {
-				ptrs[i] = &out[i]
-			}
-			gotN, gotErr := scanVarsCommon(br, false, parse, ptrs...)
-
-			if gotErr == nil || gotErr.Error() != tt.wantErr {
-				t.Errorf("scanVars() error = %v, want %v", gotErr, tt.wantErr)
-			}
-			if gotN != tt.wantN {
-				t.Errorf("scanVars() n = %d, want %d", gotN, tt.wantN)
-			}
-			if !reflect.DeepEqual(out, tt.wantVals) {
-				t.Errorf("scanVars() out = %v, want %v", out, tt.wantVals)
-			}
-		})
-	}
-}
-
-func Test_scanVarsLn_trailingSpacesWithoutNewline(t *testing.T) {
-	br := NewReader(strings.NewReader("a b c   "))
-	var a, b, c string
-	n, err := scanVarsLnCommon(br, func(b []byte) (string, error) { return string(b), nil }, &a, &b, &c)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-	if n != 3 {
-		t.Errorf("n = %d, want 3", n)
-	}
-	if a != "a" || b != "b" || c != "c" {
-		t.Errorf("got %q, %q, %q, want a,b,c", a, b, c)
-	}
 }
