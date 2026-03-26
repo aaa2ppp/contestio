@@ -671,21 +671,11 @@ func Benchmark_scanInt(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
 			br := NewReader(bytes.NewReader(input))
-			res := memory[:0]
+			res := memory
 			b.StartTimer()
 
-			var v1, v2, v3 int
-			for i, n := 0, N/3; i < n; i++ {
-				scanVarsCommon(br, false, parseInt, &v1, &v2, &v3)
-				res = append(res, v1, v2, v3)
-			}
-			switch N % 3 {
-			case 1:
-				scanVarsCommon(br, false, parseInt, &v1)
-				res = append(res, v1)
-			case 2:
-				scanVarsCommon(br, false, parseInt, &v1, &v2)
-				res = append(res, v1, v2)
+			for j := 0; j+3 < len(res); j += 3 {
+				scanVarsCommon(br, false, parseInt, &res[j], &res[j+1], &res[j+2])
 			}
 		}
 	})
@@ -772,21 +762,11 @@ func Benchmark_scanFloat(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
 			br := NewReader(bytes.NewReader(input))
-			res := memory[:0]
+			res := memory
 			b.StartTimer()
 
-			var v1, v2, v3 float64
-			for i, n := 0, N/3; i < n; i++ {
-				scanVarsCommon(br, false, parseFloat, &v1, &v2, &v3)
-				res = append(res, v1, v2, v3)
-			}
-			switch N % 3 {
-			case 1:
-				scanVarsCommon(br, false, parseFloat, &v1)
-				res = append(res, v1)
-			case 2:
-				scanVarsCommon(br, false, parseFloat, &v1, &v2)
-				res = append(res, v1, v2)
+			for j := 0; j+3 < len(res); j += 3 {
+				scanVarsCommon(br, false, parseFloat, &res[j], &res[j+1], &res[j+2])
 			}
 		}
 	})
