@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:021 -->
+<!-- next-note-id:022 -->
 
 ## Open Questions
 
@@ -70,11 +70,15 @@
 
 - **003 [ ] Translate all inline documentation to English (2026-03-09)**
 
-- **020 [ ] Mixed scan: two-stage implementation (2026-03-22)**
+- **021 [ ] Investigate unification of scan and output cycles (2026-03-28)**
 
-  Provide a convenient API for scanning mixed types (e.g., `ScanMixed(r, &name, &age, &score)`). 
-  **Stage 1:** Implement `ScanMixed` using `any` arguments (no reflection) under the `sugar` build tag. This allows users to test the API in real tasks.  
-  **Stage 2:** If the API proves convenient, extend `contestio-inline` to generate specialised functions for each call signature and replace the calls during inlining, achieving maximal performance without interfaces in the final code. The original calls are restored on `-clear`.
+  After adding `ScanAny*` / `PrintAny*` (#020), there was a duplication of logic between `scanVars*` and `scanAny*`, as well as between `printVals*`, `printWords*` and `printAny*`. 
+  
+  It is required that:
+    - Develop a unified implementation that will allow the use of common loops for both typed and reflexive functions.
+    - Keep the public API unchanged during implementation.
+    - Evaluate the impact on performance using existing tests.
+    - Decide whether to implement (or maintain the current approach)
 
 ## Made
 
@@ -164,3 +168,12 @@
 
   This restores full access to `bufio.Reader` methods while keeping the convenience functions for token scanning. It also aligns with the library's pattern of using `ScanXXX` functions for higher-level operations.
 
+- **020 [+] Mixed scan: two-stage implementation (2026-03-22) (made:2026-03-28)**
+
+  Provide a convenient API for scanning mixed types (e.g., `ScanMixed(r, &name, &age, &score)`). 
+
+  **Stage 1:** Implemented `ScanAny`, `ScanAnyLn`, `PrintAny`, `PrintAnyLn` under the `any` build tag.
+  These functions accept `any` arguments and use reflection (or unsafe access to `eface` structure when built with `-tags=unsafe`) to provide a convenient API for mixed‑type I/O without code generation.
+  The implementation is isolated behind the `any` tag to avoid polluting the main library with reflection overhead; users can enable it explicitly.
+
+  **Stage 2:** Postponed. The reflection‑based API proved simpler and performant enough for typical contest usage; generating specialised functions for each call signature is not a priority at this time.

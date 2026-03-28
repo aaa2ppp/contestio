@@ -67,7 +67,22 @@ func scanAnyLnCommon(br *Reader, a ...any) (int, error) {
 	return n, ErrExpectedEOL
 }
 
-func ScanAny(br *Reader, a ...any) (int, error)   { return must(scanAnyCommon(br, false, a...)) }
+// ScanAny считывает одно или несколько значений из br и сохраняет их по указателям a.
+// Возвращает количество успешно считанных значений и ошибку.
+//
+// Поддерживаемые типы значений:
+//   - любые целые
+//   - любые числа с плавающей точкой
+//   - любые строки (читаются как слова - последовательность непробельных символов)
+//
+// Аргументы должны быть указателями на поддерживаемые типы. Передача nil-указателя приводит к панике.
+// Функция ведёт себя аналогично fmt.Fscan: пропускает пробелы, читает токены до пробельных символов.
+func ScanAny(br *Reader, a ...any) (int, error) { return must(scanAnyCommon(br, false, a...)) }
+
+// ScanAnyLn считывает одно или несколько значений из текущей строки и сохраняет их по указателям a.
+// Поддерживаемые типы те же, что и в ScanAny. После чтения всех значений пропускает оставшуюся
+// часть строки (до символа '\n'). Если после требуемых значений остались другие токены в строке,
+// возвращает ErrExpectedEOL. В остальном поведение аналогично ScanAny.
 func ScanAnyLn(br *Reader, a ...any) (int, error) { return must(scanAnyLnCommon(br, a...)) }
 
 func printAnyCommon(bw *Writer, op writeOpts, a ...any) (int, error) {
@@ -118,5 +133,20 @@ func printAnyCommon(bw *Writer, op writeOpts, a ...any) (int, error) {
 	return len(a), err
 }
 
+// PrintAny выводит одно или несколько значений a в bw с заданными опциями форматирования.
+// Возвращает количество выведенных значений и ошибку.
+//
+// Поддерживаемые типы значений:
+//   - любые целые
+//   - любые числа с плавающей точкой
+//   - любые строки
+//   - и указатели на эти типы (значения разыменовываются)
+//
+// Передача nil-указателя приводит к панике. Передача неподдерживаемого типа возвращает ошибку.
+// Передача значения (не указателя) приводит к аллокации (значение escape на кучу) из-за особенностей
+// интерфейсов Go. Для избежания аллокаций передавайте указатели.
 func PrintAny(bw *Writer, op WO, a ...any) (int, error) { return must(printAnyCommon(bw, op, a...)) }
-func PrintAnyLn(bw *Writer, a ...any) (int, error)      { return must(printAnyCommon(bw, lineWO, a...)) }
+
+// PrintAnyLn выводит одно или несколько значений a в bw, разделяя пробелами и завершая переводом строки.
+// Работает аналогично PrintAny.
+func PrintAnyLn(bw *Writer, a ...any) (int, error) { return must(printAnyCommon(bw, lineWO, a...)) }
