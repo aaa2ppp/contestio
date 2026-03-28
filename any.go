@@ -87,7 +87,7 @@ func printAnyCommon(bw *Writer, op writeOpts, a ...any) (int, error) {
 		}
 
 		if k == reflect.String {
-			v := getStringValue(x)
+			v := getAnyString(x)
 			if _, err := bw.WriteString(v); err != nil {
 				return i, err
 			}

@@ -4,14 +4,14 @@ package contestio
 
 import "reflect"
 
-func getPointer[T any](x any) *T { return (*T)(reflect.ValueOf(x).UnsafePointer()) }
+func getAnyPointer[T any](x any) *T { return (*T)(reflect.ValueOf(x).UnsafePointer()) }
 
 func parseAnyInt[T Int](token []byte, x any) error { // x must be Int pointer
 	v, err := parseInt[T](token)
 	if err != nil {
 		return err
 	}
-	p := getPointer[T](x)
+	p := getAnyPointer[T](x)
 	*p = v
 	return nil
 }
@@ -21,7 +21,7 @@ func parseAnyFloat[T Float](token []byte, x any) error { // x must be Float poin
 	if err != nil {
 		return err
 	}
-	p := getPointer[T](x)
+	p := getAnyPointer[T](x)
 	*p = v
 	return nil
 }
@@ -31,7 +31,7 @@ func parseAnyWord[T ~string](token []byte, x any) error { // x must be ~string p
 	if err != nil {
 		return err
 	}
-	p := getPointer[T](x)
+	p := getAnyPointer[T](x)
 	*p = v
 	return nil
 }
@@ -90,7 +90,7 @@ var appendAnyTab = []appendAnyFunc{
 	reflect.Float64: appendAnyFloat,
 }
 
-func getStringValue(x any) string { // x must be string value or pointer
+func getAnyString(x any) string { // x must be string value or pointer
 	if reflect.TypeOf(x).Kind() == reflect.Pointer {
 		return reflect.ValueOf(x).Elem().String()
 	}

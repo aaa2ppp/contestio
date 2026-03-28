@@ -7,7 +7,7 @@ import (
 	"unsafe"
 )
 
-// eface — the raw interface{} structure.
+// eface - the raw interface{} structure.
 //
 // See:
 // file://$GOROOT/src/runtime/runtime2.go
@@ -18,17 +18,17 @@ type eface struct {
 }
 
 // check eface struct size in compile time
-var _ = ([1]byte{})[unsafe.Sizeof(any(nil))-unsafe.Sizeof(eface{})]
+var _ = [1]byte{}[unsafe.Sizeof(eface{})-unsafe.Sizeof(any(nil))]
 
-func getPointer[T any](x any) *T { return (*T)((*(*eface)(unsafe.Pointer(&x))).data) }
-func getValue[T any](x any) T    { return *getPointer[T](x) }
+func getAnyPointer[T any](x any) *T { return (*T)((*(*eface)(unsafe.Pointer(&x))).data) }
+func getAnyValue[T any](x any) T    { return *getAnyPointer[T](x) }
 
 func parseAnyInt[T Int](token []byte, x any) error { // x must be Int pointer
 	v, err := parseInt[T](token)
 	if err != nil {
 		return err
 	}
-	p := getPointer[T](x)
+	p := getAnyPointer[T](x)
 	*p = v
 	return nil
 }
@@ -38,7 +38,7 @@ func parseAnyFloat[T Float](token []byte, x any) error { // x must be Float poin
 	if err != nil {
 		return err
 	}
-	p := getPointer[T](x)
+	p := getAnyPointer[T](x)
 	*p = v
 	return nil
 }
@@ -48,7 +48,7 @@ func parseAnyWord[T ~string](token []byte, x any) error { // x must be ~string p
 	if err != nil {
 		return err
 	}
-	p := getPointer[T](x)
+	p := getAnyPointer[T](x)
 	*p = v
 	return nil
 }
@@ -71,12 +71,12 @@ var parseAnyTab = []parseAnyFunc{
 }
 
 func appendAnyInt[T Int](b []byte, x any) []byte { // x must be Int value
-	v := getValue[T](x)
+	v := getAnyValue[T](x)
 	return appendInt(b, v)
 }
 
 func appendAnyFloat[T Float](b []byte, x any) []byte { // x must be Float value
-	v := getValue[T](x)
+	v := getAnyValue[T](x)
 	return appendFloat(b, v)
 }
 
@@ -96,4 +96,4 @@ var appendAnyTab = []appendAnyFunc{
 	reflect.Float64: appendAnyFloat[float64],
 }
 
-func getStringValue(x any) string { return getValue[string](x) }
+func getAnyString(x any) string { return getAnyValue[string](x) }

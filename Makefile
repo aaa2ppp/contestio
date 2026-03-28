@@ -3,8 +3,7 @@ TMP_DIR ?= ./tmp
 BENCH_DIR ?= ./benchmarks
 
 GOEXE := $(shell go env GOEXE)
-TEST_FLAGS ?= -tags=dev,sugar
-BENCH_FLAGS ?= -tags=dev,sugar -benchmem 
+TAGS ?= dev,sugar,any
 
 MERGE_FILES ?= Makefile go.mod go.sum *.go *.sh *.md *.txt
 
@@ -33,8 +32,18 @@ FORCE:
 deps:
 	go mod tidy
 
-test:
-	go test $(TEST_FLAGS) ./...
+.PHONY: test-contestio-inline test-lib-unsafe test-lib
+
+test-inline:
+	go test -tags=$(TAGS) ./cmd/contestio-inline
+
+test-lib:
+	go test -tags=$(TAGS) .
+
+test-lib-unsafe:
+	go test -tags=$(TAGS),unsafe .
+
+test: test-lib test-lib-unsafe
 	@echo OK
 
 # Суффиксы для parseInt (пустой для базовой цели)
@@ -54,7 +63,7 @@ ALL_BENCH_TARGETS := $(PARSE_TARGETS) $(SCAN_TARGETS) $(PRINT_TARGETS)
 
 # Статическое правило для parseInt
 $(PARSE_TARGETS): %:
-	go test -bench 'parseInt$(subst bench-parse-int,,$@)$$' $(BENCH_FLAGS)
+	go test -tags=$(TAGS) -bench 'parseInt$(subst bench-parse-int,,$@)$$' -benchmem .
 
 # Функции капитализации (int -> Int, float -> Float)
 capitalize_int   = Int
@@ -62,11 +71,11 @@ capitalize_float = Float
 
 # Статические правила для scan
 $(SCAN_TARGETS): bench-scan-%:
-	go test -bench 'scan$(capitalize_$*)$$' $(BENCH_FLAGS)
+	go test -tags=$(TAGS) -bench 'scan$(capitalize_$*)$$' -benchmem .
 
 # Статические правила для print
 $(PRINT_TARGETS): bench-print-%:
-	go test -bench 'print$(capitalize_$*)$$' $(BENCH_FLAGS)
+	go test -tags=$(TAGS) -bench 'print$(capitalize_$*)$$' -benchmem .
 
 # Групповые цели
 bench-parse-int-all: $(PARSE_TARGETS)
