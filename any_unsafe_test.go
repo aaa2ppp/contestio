@@ -18,6 +18,10 @@ func Test_getAnyPointerValue(t *testing.T) {
 	checkGetAnyPointerValue(t, float32(3.1415927))
 	checkGetAnyPointerValue(t, float64(3.141592653589793))
 	checkGetAnyPointerValue(t, "Hello, 世界")
+	checkGetAnyPointerValue(t, MyInt(69))
+	checkGetAnyPointerValue(t, MyFloat(2.718281828459045))
+	checkGetAnyPointerValue(t, MyString("Don't Worry, Be Happy"))
+
 }
 
 func checkGetAnyPointerValue[T comparable](t *testing.T, v T) {
