@@ -17,11 +17,12 @@ type eface struct {
 	data  unsafe.Pointer
 }
 
-// check eface struct size in compile time
-var _ = [1]byte{}[unsafe.Sizeof(eface{})-unsafe.Sizeof(any(nil))]
+func getAnyPointer[T any](x any) *T {
+	_ = [1]byte{}[unsafe.Sizeof(eface{})-unsafe.Sizeof(any(nil))] // check eface struct size in compile time
+	return (*T)((*(*eface)(unsafe.Pointer(&x))).data)
+}
 
-func getAnyPointer[T any](x any) *T { return (*T)((*(*eface)(unsafe.Pointer(&x))).data) }
-func getAnyValue[T any](x any) T    { return *getAnyPointer[T](x) }
+func getAnyValue[T any](x any) T { return *getAnyPointer[T](x) }
 
 func parseAnyInt[T Int](token []byte, x any) error { // x must be Int pointer
 	v, err := parseInt[T](token)
