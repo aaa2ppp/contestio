@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unsafe"
 )
 
 func Test_scanAnyCommon(t *testing.T) {
@@ -432,6 +433,128 @@ func Test_printAnyCommon(t *testing.T) {
 	}
 }
 
+func test_scanPrintAnyInt_bulk[T Int](t *testing.T) {
+	N := 1 << 20
+	rand := rand.New(rand.NewSource(1))
+	nums := generateInts[T](rand, N)
+	input := makeIntsInput(nil, nums, 1)
+
+	t.Run("scan", func(t *testing.T) {
+		res := make([]T, len(nums))
+		br := NewReader(bytes.NewReader(input))
+		for i := range res {
+			scanAnyCommon(br, false, &res[i])
+		}
+		if !reflect.DeepEqual(res, nums) {
+			t.Errorf("scanAnyCommon for %T fail", res[0])
+		}
+	})
+
+	t.Run("print", func(t *testing.T) {
+		var out bytes.Buffer
+		bw := NewWriter(&out)
+		op := WO{End: " "}
+		for i := range nums {
+			printAnyCommon(bw, op, &nums[i])
+		}
+		bw.Flush()
+		wantOut := bytes.TrimSpace(input)
+		gotOut := bytes.TrimSpace(out.Bytes())
+		if !reflect.DeepEqual(gotOut, wantOut) {
+			t.Errorf("printAnyCommon for %T fail", nums[0])
+		}
+	})
+}
+
+func test_scanPrintAnyFloat_bulk[T Float](t *testing.T) {
+	N := 1 << 20
+	rand := rand.New(rand.NewSource(1))
+	nums := generateFloats[T](rand, N)
+	input := makeFloatsInput(nil, nums, 1)
+
+	t.Run("sacn", func(t *testing.T) {
+		res := make([]T, len(nums))
+		br := NewReader(bytes.NewReader(input))
+		for i := range res {
+			scanAnyCommon(br, false, &res[i])
+		}
+		if !reflect.DeepEqual(res, nums) {
+			t.Errorf("scanAnyCommon for %T fail", res[0])
+		}
+	})
+
+	t.Run("print", func(t *testing.T) {
+		var out bytes.Buffer
+		bw := NewWriter(&out)
+		op := WO{End: " "}
+		for i := range nums {
+			printAnyCommon(bw, op, &nums[i])
+		}
+		bw.Flush()
+		wantOut := bytes.TrimSpace(input)
+		gotOut := bytes.TrimSpace(out.Bytes())
+		if !reflect.DeepEqual(gotOut, wantOut) {
+			t.Errorf("printAnyCommon for %T fail", nums[0])
+		}
+	})
+}
+
+func test_scanPrintAnyWord_bulk[T ~string](t *testing.T) {
+	N := 1 << 20
+	rand := rand.New(rand.NewSource(1))
+	nums := generateFloats[float64](rand, N)
+	input := makeFloatsInput(nil, nums, 1)
+	words := strings.Fields(unsafeString(input))
+
+	t.Run("scan", func(t *testing.T) {
+		res := make([]T, len(nums))
+		br := NewReader(bytes.NewReader(input))
+		for i := range res {
+			scanAnyCommon(br, false, &res[i])
+		}
+		resAsStrings := *(*[]string)(unsafe.Pointer(&res))
+		if !reflect.DeepEqual(resAsStrings, words) {
+			t.Errorf("scanAnyCommon for %T fail", res[0])
+		}
+	})
+
+	t.Run("print", func(t *testing.T) {
+		var out bytes.Buffer
+		bw := NewWriter(&out)
+		op := WO{End: " "}
+		for i := range words {
+			printAnyCommon(bw, op, &words[i])
+		}
+		bw.Flush()
+		wantOut := bytes.TrimSpace(input)
+		gotOut := bytes.TrimSpace(out.Bytes())
+		if !reflect.DeepEqual(gotOut, wantOut) {
+			t.Errorf("printAnyCommon for %T fail", nums[0])
+		}
+	})
+}
+
+func Test_scanPrintAny_bulk(t *testing.T) {
+	t.Run("int8", test_scanPrintAnyInt_bulk[int8])
+	t.Run("int16", test_scanPrintAnyInt_bulk[int16])
+	t.Run("int32", test_scanPrintAnyInt_bulk[int32])
+	t.Run("int64", test_scanPrintAnyInt_bulk[int64])
+
+	t.Run("uint8", test_scanPrintAnyInt_bulk[uint8])
+	t.Run("uint16", test_scanPrintAnyInt_bulk[uint16])
+	t.Run("uint32", test_scanPrintAnyInt_bulk[uint32])
+	t.Run("uint64", test_scanPrintAnyInt_bulk[uint64])
+
+	t.Run("float32", test_scanPrintAnyFloat_bulk[float32])
+	t.Run("float64", test_scanPrintAnyFloat_bulk[float64])
+
+	t.Run("string", test_scanPrintAnyWord_bulk[string])
+
+	t.Run("MyInt", test_scanPrintAnyInt_bulk[MyInt])
+	t.Run("MyFloat", test_scanPrintAnyFloat_bulk[MyFloat])
+	t.Run("MyString", test_scanPrintAnyWord_bulk[MyString])
+}
+
 func Benchmark_scanAny(b *testing.B) {
 	b.Run("Int", func(b *testing.B) {
 		N := 1 << 20
@@ -543,21 +666,18 @@ func Benchmark_printAnyVal(b *testing.B) {
 	b.Run("String", func(b *testing.B) {
 		rand := rand.New(rand.NewSource(1))
 		nums := generateFloats[float64](rand, N)
-		words := make([]string, 0, len(nums))
-		for _, v := range nums {
-			words = append(words, strconv.FormatFloat(v, 'g', -1, 64))
-		}
+		words := strings.Fields(unsafeString(makeFloatsInput(rand, nums, 1)))
 		w := NewWriter(io.Discard)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for j := 0; j+3 < len(nums); j += 3 {
-				PrintAny(w, lineWO, nums[j], nums[j+1], nums[j+2])
+			for j := 0; j+3 < len(words); j += 3 {
+				PrintAny(w, lineWO, words[j], words[j+1], words[j+2])
 			}
 			switch len(nums) % 3 {
 			case 1:
-				PrintAny(w, lineWO, nums[len(nums)-1])
+				PrintAny(w, lineWO, words[len(words)-1])
 			case 2:
-				PrintAny(w, lineWO, nums[len(nums)-2], nums[len(nums)-1])
+				PrintAny(w, lineWO, words[len(words)-2], words[len(words)-1])
 			}
 		}
 	})
@@ -570,15 +690,19 @@ func Benchmark_printAnyPtr(b *testing.B) {
 		nums := generateInts[int](rand, N)
 		w := NewWriter(io.Discard)
 		b.ResetTimer()
+		var v1, v2, v3 int // вне цикла, т.к. всегда убегают на кучу
 		for i := 0; i < b.N; i++ {
 			for j := 0; j+3 < len(nums); j += 3 {
-				PrintAny(w, lineWO, &nums[j], &nums[j+1], &nums[j+2])
+				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
+				PrintAny(w, lineWO, &v1, &v2, &v3)
 			}
 			switch len(nums) % 3 {
 			case 1:
-				PrintAny(w, lineWO, &nums[len(nums)-1])
+				v1 = nums[len(nums)-1]
+				PrintAny(w, lineWO, &v1)
 			case 2:
-				PrintAny(w, lineWO, &nums[len(nums)-2], &nums[len(nums)-1])
+				v1, v2 := nums[len(nums)-2], nums[len(nums)-1]
+				PrintAny(w, lineWO, &v1, &v2)
 			}
 		}
 	})
@@ -587,15 +711,19 @@ func Benchmark_printAnyPtr(b *testing.B) {
 		nums := generateFloats[float64](rand, N)
 		w := NewWriter(io.Discard)
 		b.ResetTimer()
+		var v1, v2, v3 float64 // вне цикла, т.к. всегда убегают на кучу
 		for i := 0; i < b.N; i++ {
 			for j := 0; j+3 < len(nums); j += 3 {
-				PrintAny(w, lineWO, &nums[j], &nums[j+1], &nums[j+2])
+				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
+				PrintAny(w, lineWO, &v1, &v2, &v3)
 			}
 			switch len(nums) % 3 {
 			case 1:
-				PrintAny(w, lineWO, &nums[len(nums)-1])
+				v1 = nums[len(nums)-1]
+				PrintAny(w, lineWO, &v1)
 			case 2:
-				PrintAny(w, lineWO, &nums[len(nums)-2], &nums[len(nums)-1])
+				v1, v2 := nums[len(nums)-2], nums[len(nums)-1]
+				PrintAny(w, lineWO, &v1, &v2)
 			}
 		}
 	})
@@ -608,15 +736,19 @@ func Benchmark_printAnyPtr(b *testing.B) {
 		}
 		w := NewWriter(io.Discard)
 		b.ResetTimer()
+		var v1, v2, v3 string // вне цикла, т.к. всегда убегают на кучу
 		for i := 0; i < b.N; i++ {
-			for j := 0; j+3 < len(nums); j += 3 {
-				PrintAny(w, lineWO, &nums[j], &nums[j+1], &nums[j+2])
+			for j := 0; j+3 < len(words); j += 3 {
+				v1, v2, v3 = words[j], words[j+1], words[j+2]
+				PrintAny(w, lineWO, &v1, &v2, &v3)
 			}
 			switch len(nums) % 3 {
 			case 1:
-				PrintAny(w, lineWO, &nums[len(nums)-1])
+				v1 = words[len(words)-1]
+				PrintAny(w, lineWO, &v1)
 			case 2:
-				PrintAny(w, lineWO, &nums[len(nums)-2], &nums[len(nums)-1])
+				v1, v2 := words[len(words)-2], words[len(words)-1]
+				PrintAny(w, lineWO, &v1, &v2)
 			}
 		}
 	})

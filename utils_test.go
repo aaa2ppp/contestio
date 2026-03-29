@@ -49,7 +49,7 @@ func generateFloats[T Float](rand *rand.Rand, n int) []T {
 }
 
 func makeAppendSpace(rand *rand.Rand, n int) func([]byte) []byte {
-	if n <= 1 {
+	if rand == nil || n <= 1 {
 		return func(b []byte) []byte { return append(b, ' ') }
 	}
 	return func(b []byte) []byte { return append(b, strings.Repeat(" ", rand.Intn(n)+1)...) }

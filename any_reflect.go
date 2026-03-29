@@ -67,11 +67,11 @@ func appendAnyUint(b []byte, x any) []byte { // x must be any unsigned int value
 	return appendInt(b, reflect.ValueOf(x).Uint())
 }
 
-func appendAnyFloat(b []byte, x any) []byte { // x must be any float value or pointer
+func appendAnyFloat[T Float](b []byte, x any) []byte { // x must be any float value or pointer
 	if reflect.TypeOf(x).Kind() == reflect.Pointer {
-		return appendFloat(b, reflect.ValueOf(x).Elem().Float())
+		return appendFloat[T](b, T(reflect.ValueOf(x).Elem().Float()))
 	}
-	return appendFloat(b, reflect.ValueOf(x).Float())
+	return appendFloat[T](b, T(reflect.ValueOf(x).Float()))
 }
 
 var appendAnyTab = []appendAnyFunc{
@@ -86,8 +86,8 @@ var appendAnyTab = []appendAnyFunc{
 	reflect.Uint32:  appendAnyUint,
 	reflect.Uint64:  appendAnyUint,
 	reflect.Uintptr: appendAnyUint,
-	reflect.Float32: appendAnyFloat,
-	reflect.Float64: appendAnyFloat,
+	reflect.Float32: appendAnyFloat[float32],
+	reflect.Float64: appendAnyFloat[float64],
 }
 
 func getAnyString(x any) string { // x must be string value or pointer
