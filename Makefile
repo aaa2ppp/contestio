@@ -46,6 +46,8 @@ test-lib-unsafe:
 test: test-lib test-lib-unsafe
 	@echo OK
 
+GO_BENCH = go test -tags=$(TAGS) -run '^$$' -benchmem -bench
+
 # Суффиксы для parseInt (пустой для базовой цели)
 PARSE_SUFFIXES := 2 4 6 8 12 16
 PARSE_TARGETS  := bench-parse-int $(addprefix bench-parse-int, $(PARSE_SUFFIXES))
@@ -61,21 +63,23 @@ ALL_BENCH_TARGETS := $(PARSE_TARGETS) $(SCAN_TARGETS) $(PRINT_TARGETS)
 # Явно объявляем все цели .PHONY
 .PHONY: $(ALL_BENCH_TARGETS) bench-parse-int-all bench-scan-all bench-print-all
 
+
 # Статическое правило для parseInt
 $(PARSE_TARGETS): %:
-	go test -tags=$(TAGS) -bench 'parseInt$(subst bench-parse-int,,$@)$$' -benchmem .
+	$(GO_BENCH) 'parseInt$(subst bench-parse-int,,$@)$$' .
 
 # Функции капитализации (int -> Int, float -> Float)
 capitalize_int   = Int
 capitalize_float = Float
 
+
 # Статические правила для scan
 $(SCAN_TARGETS): bench-scan-%:
-	go test -tags=$(TAGS) -bench 'scan$(capitalize_$*)$$' -benchmem .
+	$(GO_BENCH) 'scan$(capitalize_$*)$$' .
 
 # Статические правила для print
 $(PRINT_TARGETS): bench-print-%:
-	go test -tags=$(TAGS) -bench 'print$(capitalize_$*)$$' -benchmem .
+	$(GO_BENCH) 'print$(capitalize_$*)$$' .
 
 # Групповые цели
 bench-parse-int-all: $(PARSE_TARGETS)

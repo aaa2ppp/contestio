@@ -426,3 +426,43 @@ func Benchmark_parseInt_boundaries(b *testing.B) {
 		})
 	}
 }
+
+func Benchmark_scanSlice(b *testing.B) {
+	N := 1 << 20 // 1M
+	maxSpace := 5
+	rand := rand.New(rand.NewSource(1))
+	nums := generateInts[int32](rand, N)
+	input := makeIntsInput(rand, nums, maxSpace)
+	memory := make([]int, N)
+
+	b.Run("parseIntStd", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			br := NewReader(bytes.NewReader(input))
+			res := memory[:N]
+			b.StartTimer()
+
+			scanSlice(br, parseIntStd, res)
+		}
+	})
+	b.Run("parseIntAtoi", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			br := NewReader(bytes.NewReader(input))
+			res := memory[:N]
+			b.StartTimer()
+
+			scanSlice(br, func(b []byte) (int, error) { return strconv.Atoi(unsafeString(b)) }, res)
+		}
+	})
+	b.Run("parseInt", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			br := NewReader(bytes.NewReader(input))
+			res := memory[:N]
+			b.StartTimer()
+
+			scanSlice(br, parseInt, res)
+		}
+	})
+}
