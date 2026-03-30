@@ -9,7 +9,8 @@ import (
 	"testing"
 )
 
-func godParser(b []byte) (string, error) { return string(b), nil }
+func godParser(b []byte) (string, error)    { return string(b), nil }
+func godParserTo(b []byte, p *string) error { return parseValTo(b, godParser, p) }
 
 var parseError = errors.New("parse error")
 
@@ -21,6 +22,17 @@ func badParser(failAt int) parseFunc[string] {
 			return "", parseError
 		}
 		return godParser(b)
+	}
+}
+
+func badParserTo(failAt int) parseToFunc[*string] {
+	count := 0
+	return func(b []byte, p *string) error {
+		count++
+		if count == failAt {
+			return parseError
+		}
+		return godParserTo(b, p)
 	}
 }
 
@@ -290,7 +302,7 @@ func Test_scanVars(t *testing.T) {
 		name      string
 		input     string
 		stopAtEol bool
-		parse     func([]byte) (string, error)
+		parse     parseToFunc[*string]
 		a         []string
 		wantA     []string
 		wantN     int
@@ -300,7 +312,7 @@ func Test_scanVars(t *testing.T) {
 			"empty input",
 			"",
 			false,
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"1", "2", "3", "4", "5"},
 			0,
@@ -310,7 +322,7 @@ func Test_scanVars(t *testing.T) {
 			"only spaces",
 			" \t\r\n",
 			false,
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"1", "2", "3", "4", "5"},
 			0,
@@ -320,7 +332,7 @@ func Test_scanVars(t *testing.T) {
 			"one token",
 			"one",
 			false,
-			godParser,
+			godParserTo,
 			[]string{"1"},
 			[]string{"one"},
 			1,
@@ -330,7 +342,7 @@ func Test_scanVars(t *testing.T) {
 			"leading spaces",
 			" \t\r\none",
 			false,
-			godParser,
+			godParserTo,
 			[]string{"1"},
 			[]string{"one"},
 			1,
@@ -340,7 +352,7 @@ func Test_scanVars(t *testing.T) {
 			"trailing spaces",
 			"one \t\r\n",
 			false,
-			godParser,
+			godParserTo,
 			[]string{"1"},
 			[]string{"one"},
 			1,
@@ -350,7 +362,7 @@ func Test_scanVars(t *testing.T) {
 			"correct input",
 			"one two three four five six",
 			false,
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "four", "five"},
 			5,
@@ -360,7 +372,7 @@ func Test_scanVars(t *testing.T) {
 			"incomplete input",
 			"one two three",
 			false,
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "4", "5"},
 			3,
@@ -370,7 +382,7 @@ func Test_scanVars(t *testing.T) {
 			"incomplete input (stop at eol)",
 			"one two three\nfour five six",
 			true, // stop at eol
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "4", "5"},
 			3,
@@ -380,7 +392,7 @@ func Test_scanVars(t *testing.T) {
 			"parse error at 1",
 			"one two three four five six",
 			false,
-			badParser(1),
+			badParserTo(1),
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"1", "2", "3", "4", "5"},
 			0,
@@ -390,7 +402,7 @@ func Test_scanVars(t *testing.T) {
 			"parse error at 4",
 			"one two three four five six",
 			false,
-			badParser(4),
+			badParserTo(4),
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "4", "5"},
 			3,
@@ -405,7 +417,7 @@ func Test_scanVars(t *testing.T) {
 			for i := range gotA {
 				p[i] = &gotA[i]
 			}
-			gotN, gotErr := scanVarsCommon(br, tt.stopAtEol, tt.parse, p...)
+			gotN, gotErr := scanVarsCommon(br, tt.stopAtEol, tt.parse, p)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanVarsCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}
@@ -423,7 +435,7 @@ func Test_scanVarsLn(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		parse   func([]byte) (string, error)
+		parse   parseToFunc[*string]
 		a       []string
 		wantA   []string
 		wantN   int
@@ -432,7 +444,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"empty input",
 			"",
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"1", "2", "3", "4", "5"},
 			0,
@@ -441,7 +453,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"only spaces (except LF)",
 			" \t\r",
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"1", "2", "3", "4", "5"},
 			0,
@@ -450,7 +462,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"only LF",
 			"\n",
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"1", "2", "3", "4", "5"},
 			0,
@@ -459,7 +471,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"only spaces ended with LF",
 			" \t\r\n",
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"1", "2", "3", "4", "5"},
 			0,
@@ -468,7 +480,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"one token (EOL)",
 			"one\n",
-			godParser,
+			godParserTo,
 			[]string{"1"},
 			[]string{"one"},
 			1,
@@ -477,7 +489,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"one token (EOF)",
 			"one",
-			godParser,
+			godParserTo,
 			[]string{"1"},
 			[]string{"one"},
 			1,
@@ -486,7 +498,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"leading spaces",
 			" \t\rone",
-			godParser,
+			godParserTo,
 			[]string{"1"},
 			[]string{"one"},
 			1,
@@ -495,7 +507,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"trailing spaces (EOL)",
 			"one \t\r\n",
-			godParser,
+			godParserTo,
 			[]string{"1"},
 			[]string{"one"},
 			1,
@@ -504,7 +516,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"trailing spaces (EOF)",
 			"one \t\r",
-			godParser,
+			godParserTo,
 			[]string{"1"},
 			[]string{"one"},
 			1,
@@ -513,7 +525,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"correct input",
 			"one two three four five\nsix",
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "four", "five"},
 			5,
@@ -522,7 +534,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"incomplete input (EOF)",
 			"one two three",
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "4", "5"},
 			3,
@@ -531,7 +543,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"incomplete input (EOL)",
 			"one two three\nfour five six",
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "4", "5"},
 			3,
@@ -540,7 +552,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"expected eol",
 			"one two three four five six",
-			godParser,
+			godParserTo,
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "four", "five"},
 			5,
@@ -549,7 +561,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"parse error at 1",
 			"one two three four five\nsix",
-			badParser(1),
+			badParserTo(1),
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"1", "2", "3", "4", "5"},
 			0,
@@ -558,7 +570,7 @@ func Test_scanVarsLn(t *testing.T) {
 		{
 			"parse error at 4",
 			"one two three four five\nsix",
-			badParser(4),
+			badParserTo(4),
 			[]string{"1", "2", "3", "4", "5"},
 			[]string{"one", "two", "three", "4", "5"},
 			3,
@@ -573,7 +585,7 @@ func Test_scanVarsLn(t *testing.T) {
 			for i := range gotA {
 				p[i] = &gotA[i]
 			}
-			gotN, gotErr := scanVarsLnCommon(br, tt.parse, p...)
+			gotN, gotErr := scanVarsLn(br, tt.parse, p...)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanVarsLnCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}

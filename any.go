@@ -4,67 +4,73 @@ package contestio
 
 import (
 	"errors"
-	"io"
 	"reflect"
 )
 
 type parseAnyFunc func(token []byte, p any) error
-type appendAnyFunc func(b []byte, v any) []byte
+type printAnyFunc func(bw *Writer, v any) error
 
-func scanAnyCommon(br *Reader, stopAtEol bool, a ...any) (int, error) {
-	for i, x := range a {
-		// Following the behavior of fmt.Fscan, we do not explicitly check for nil pointers.
-		// Passing a nil pointer will cause a panic, which is considered a programmer error.
-		// This avoids extra overhead in the hot path.
-
-		t := reflect.TypeOf(x)
-		if t.Kind() != reflect.Pointer {
-			return i, errors.New("type not a pointer: " + t.String())
-		}
-		k := t.Elem().Kind()
-		if uint(k) >= uint(len(parseAnyTab)) {
-			return i, errors.New("unsupported kind: " + k.String())
-		}
-		parseAny := parseAnyTab[k]
-		if parseAny == nil {
-			return i, errors.New("unsupported kind: " + k.String())
-		}
-
-		if err := skipSpace(br, stopAtEol); err != nil {
-			if err == io.EOF {
-				if i == 0 { // return EOF only if no tokens were read
-					return 0, io.EOF
-				}
-				return i, io.ErrUnexpectedEOF // not all requested data was read
-			}
-			return i, err
-		}
-		// success 'skipSpace' ensures that there is at least one non-white character
-		token, err := nextToken(br) // always not empty
-		if err != nil && err != io.EOF {
-			return i, err
-		}
-
-		if err := parseAny(token, x); err != nil {
-			return i, err
-		}
+func parseAnyInt[T Int](token []byte, x any) error { // x must be Int pointer
+	v, err := parseInt[T](token)
+	if err != nil {
+		return err
 	}
-	return len(a), nil
+	p := getAnyPointer[T](x)
+	*p = v
+	return nil
 }
 
-func scanAnyLnCommon(br *Reader, a ...any) (int, error) {
-	n, err := scanAnyCommon(br, true, a...) // scan to end of line
+func parseAnyFloat[T Float](token []byte, x any) error { // x must be Float pointer
+	v, err := parseFloat[T](token)
 	if err != nil {
-		return n, err
+		return err
 	}
-	err = skipSpace(br, true) // stop at end of line
+	p := getAnyPointer[T](x)
+	*p = v
+	return nil
+}
+
+func parseAnyWord[T ~string](token []byte, x any) error { // x must be ~string pointer
+	v, err := parseWord[T](token)
 	if err != nil {
-		if err == EOL || err == io.EOF { // interpret EOF as end of line
-			return n, nil
-		}
-		return n, err
+		return err
 	}
-	return n, ErrExpectedEOL
+	p := getAnyPointer[T](x)
+	*p = v
+	return nil
+}
+
+var parseAnyTab = []parseAnyFunc{
+	reflect.Int:     parseAnyInt[int],
+	reflect.Int8:    parseAnyInt[int8],
+	reflect.Int16:   parseAnyInt[int16],
+	reflect.Int32:   parseAnyInt[int32],
+	reflect.Int64:   parseAnyInt[int64],
+	reflect.Uint:    parseAnyInt[uint],
+	reflect.Uint8:   parseAnyInt[uint8],
+	reflect.Uint16:  parseAnyInt[uint16],
+	reflect.Uint32:  parseAnyInt[uint32],
+	reflect.Uint64:  parseAnyInt[uint64],
+	reflect.Uintptr: parseAnyInt[uintptr],
+	reflect.Float32: parseAnyFloat[float32],
+	reflect.Float64: parseAnyFloat[float64],
+	reflect.String:  parseAnyWord[string],
+}
+
+func parseAnyTo(token []byte, x any) error {
+	t := reflect.TypeOf(x)
+	if t.Kind() != reflect.Pointer {
+		return errors.New("type not a pointer: " + t.String())
+	}
+	k := t.Elem().Kind()
+	if uint(k) >= uint(len(parseAnyTab)) {
+		return errors.New("unsupported kind: " + k.String())
+	}
+	parse := parseAnyTab[k]
+	if parse == nil {
+		return errors.New("unsupported kind: " + k.String())
+	}
+	return parse(token, x)
 }
 
 // ScanAny считывает одно или несколько значений из br и сохраняет их по указателям a.
@@ -77,60 +83,28 @@ func scanAnyLnCommon(br *Reader, a ...any) (int, error) {
 //
 // Аргументы должны быть указателями на поддерживаемые типы. Передача nil-указателя приводит к панике.
 // Функция ведёт себя аналогично fmt.Fscan: пропускает пробелы, читает токены до пробельных символов.
-func ScanAny(br *Reader, a ...any) (int, error) { return must(scanAnyCommon(br, false, a...)) }
+func ScanAny(br *Reader, a ...any) (int, error) { return scanVars(br, parseAnyTo, a...) }
 
 // ScanAnyLn считывает одно или несколько значений из текущей строки и сохраняет их по указателям a.
 // Поддерживаемые типы те же, что и в ScanAny. После чтения всех значений пропускает оставшуюся
 // часть строки (до символа '\n'). Если после требуемых значений остались другие токены в строке,
 // возвращает ErrExpectedEOL. В остальном поведение аналогично ScanAny.
-func ScanAnyLn(br *Reader, a ...any) (int, error) { return must(scanAnyLnCommon(br, a...)) }
+func ScanAnyLn(br *Reader, a ...any) (int, error) { return scanVarsLn(br, parseAnyTo, a...) }
 
-func printAnyCommon(bw *Writer, op writeOpts, a ...any) (int, error) {
-	var buf []byte
-
-	_, _ = bw.WriteString(op.Begin)
-
-	for i, x := range a {
-		if i > 0 {
-			_, _ = bw.WriteString(op.Sep)
-		}
-
-		t := reflect.TypeOf(x)
-		k := t.Kind()
-		if k == reflect.Pointer {
-			k = t.Elem().Kind()
-		}
-
-		if k == reflect.String {
-			v := getAnyString(x)
-			if _, err := bw.WriteString(v); err != nil {
-				return i, err
-			}
-			continue
-		}
-
-		if uint(k) >= uint(len(appendAnyTab)) {
-			return i, errors.New("unsupported kind: " + k.String())
-		}
-		appendVal := appendAnyTab[k]
-		if appendVal == nil {
-			return i, errors.New("unsupported kind: " + k.String())
-		}
-
-		if bw.Available() < len(bw.scratch) {
-			buf = bw.scratch[:0]
-		} else {
-			buf = bw.AvailableBuffer()
-		}
-
-		buf = appendVal(buf, a[i])
-		if _, err := bw.Write(buf); err != nil {
-			return i, err
-		}
+func printAny(bw *Writer, x any) error {
+	t := reflect.TypeOf(x)
+	k := t.Kind()
+	if k == reflect.Pointer {
+		k = t.Elem().Kind()
 	}
-
-	_, err := bw.WriteString(op.End)
-	return len(a), err
+	if uint(k) >= uint(len(printAnyTab)) {
+		return errors.New("unsupported kind: " + k.String())
+	}
+	printVal := printAnyTab[k]
+	if printVal == nil {
+		return errors.New("unsupported kind: " + k.String())
+	}
+	return printVal(bw, x)
 }
 
 // PrintAny выводит одно или несколько значений a в bw с заданными опциями форматирования.
@@ -166,8 +140,8 @@ func printAnyCommon(bw *Writer, op writeOpts, a ...any) (int, error) {
 // Также неправильно (передача значения, а не указателя):
 //
 //	PrintAny(bw, op, data[i])   // аллокация для каждого значения
-func PrintAny(bw *Writer, op WO, a ...any) (int, error) { return must(printAnyCommon(bw, op, a...)) }
+func PrintAny(bw *Writer, op WO, a ...any) (int, error) { return printVals(bw, op, printAny, a...) }
 
 // PrintAnyLn выводит одно или несколько значений a в bw, разделяя пробелами и завершая переводом строки.
 // Работает аналогично PrintAny.
-func PrintAnyLn(bw *Writer, a ...any) (int, error) { return must(printAnyCommon(bw, lineWO, a...)) }
+func PrintAnyLn(bw *Writer, a ...any) (int, error) { return printValsLn(bw, printAny, a...) }

@@ -2,16 +2,24 @@ package contestio
 
 func parseWord[T ~string](token []byte) (T, error) { return T(token), nil }
 
+var _ parseFunc[string] = parseWord[string]
+
+func parseWordTo[T ~string](token []byte, p *T) error { return parseValTo(token, parseWord, p) }
+
+var _ parseToFunc[*string] = parseWordTo[string]
+
 // ScanWord считывает одно или несколько слов (последовательность непробельных байт) из br и сохраняет их по указателям a.
 // Возвращает количество считанных слов и ошибку.
 //
 // Ограничение: Для всех функций ScanWord* длина слова не может превышать размер внутреннего буфера (по умолчанию 4КБ) минус один символ.
 // При превышении возвращается ErrTokenTooLong.
-func ScanWord[T ~string](br *Reader, a ...*T) (int, error) { return scanVars(br, parseWord, a...) }
+func ScanWord[T ~string](br *Reader, a ...*T) (int, error) { return scanVars(br, parseWordTo, a...) }
 
 // ScanWordLn считывает одно или несколько слов из текущей строки и сохраняет их по указателям a.
 // Пропускает оставшуюся часть строки до конца. Возвращает количество считанных слов и ошибку.
-func ScanWordLn[T ~string](br *Reader, a ...*T) (int, error) { return scanVarsLn(br, parseWord, a...) }
+func ScanWordLn[T ~string](br *Reader, a ...*T) (int, error) {
+	return scanVarsLn(br, parseWordTo, a...)
+}
 
 // ScanWords считывает последовательность слов из br в слайс a.
 // Возвращает количество успешно считанных элементов и первую ошибку.
@@ -21,40 +29,31 @@ func ScanWords[T ~string](br *Reader, a []T) (int, error) { return scanSlice(br,
 // Возвращает итоговый слайс и ошибку (может быть io.EOF).
 func ScanWordsLn[S ~[]T, T ~string](br *Reader, a S) (S, error) { return scanSliceLn(br, parseWord, a) }
 
-func printWordsCommon[T ~string](bw *Writer, op writeOpts, a []T) (int, error) {
-	_, _ = bw.WriteString(op.Begin)
-	for i, v := range a {
-		if i > 0 {
-			_, _ = bw.WriteString(op.Sep)
-		}
-		if _, err := bw.WriteString(string(v)); err != nil {
-			return i, err
-		}
+func printWord[T ~string](bw *Writer, v T) error {
+	if _, err := bw.WriteString(string(v)); err != nil {
+		return err
 	}
-	_, err := bw.WriteString(op.End)
-	return len(a), err
+	return nil
 }
+
+var _ printFunc[string] = printWord[string]
 
 // PrintWord выводит одну или несколько строк a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintWord[T ~string](bw *Writer, op WO, a ...T) (int, error) {
-	return must(printWordsCommon(bw, op, a))
+	return printVals(bw, op, printWord, a...)
 }
 
 // PrintWordLn выводит одну или несколько строк a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
-func PrintWordLn[T ~string](bw *Writer, a ...T) (int, error) {
-	return must(printWordsCommon(bw, lineWO, a))
-}
+func PrintWordLn[T ~string](bw *Writer, a ...T) (int, error) { return printValsLn(bw, printWord, a...) }
 
 // PrintWords выводит слайс строк a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintWords[T ~string](bw *Writer, op WO, a []T) (int, error) {
-	return must(printWordsCommon(bw, op, a))
+	return printSlice(bw, op, printWord, a)
 }
 
 // PrintWordsLn выводит слайс строк a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
-func PrintWordsLn[T ~string](bw *Writer, a []T) (int, error) {
-	return must(printWordsCommon(bw, lineWO, a))
-}
+func PrintWordsLn[T ~string](bw *Writer, a []T) (int, error) { return printSliceLn(bw, printWord, a) }

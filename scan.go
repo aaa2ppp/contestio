@@ -63,7 +63,18 @@ func scanSliceLnCommon[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error
 	}
 }
 
-func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...*T) (int, error) {
+type parseToFunc[T any] func([]byte, T) error
+
+func parseValTo[T any](token []byte, parse parseFunc[T], p *T) error {
+	v, err := parse(token)
+	if err != nil {
+		return err
+	}
+	*p = v
+	return nil
+}
+
+func scanVarsCommon[T any](br *Reader, stopAtEol bool, parseTo parseToFunc[T], a []T) (int, error) {
 	for i := range a {
 		err := skipSpace(br, stopAtEol)
 		if err != nil {
@@ -80,11 +91,9 @@ func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...
 		if err != nil && err != io.EOF {
 			return i, err
 		}
-		v, err := parse(token)
-		if err != nil {
+		if err := parseTo(token, a[i]); err != nil {
 			return i, err
 		}
-		*a[i] = v
 	}
 	return len(a), nil
 }
@@ -92,8 +101,8 @@ func scanVarsCommon[T any](br *Reader, stopAtEol bool, parse parseFunc[T], a ...
 // ErrExpectedEOL возвращается, если не был прочитан ожидаемый конец строки
 var ErrExpectedEOL = errors.New("expected end of line")
 
-func scanVarsLnCommon[T any](br *Reader, parse parseFunc[T], a ...*T) (int, error) {
-	n, err := scanVarsCommon(br, true, parse, a...) // scan to end of line
+func scanVarsLnCommon[T any](br *Reader, parseTo parseToFunc[T], a []T) (int, error) {
+	n, err := scanVarsCommon(br, true, parseTo, a) // scan to end of line
 	if err != nil {
 		return n, err
 	}
@@ -115,10 +124,10 @@ func scanSliceLn[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
 	return must(scanSliceLnCommon(br, parse, a))
 }
 
-func scanVars[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
-	return must(scanVarsCommon(br, false, parser, a...))
+func scanVars[T any](br *Reader, parseTo parseToFunc[T], a ...T) (int, error) {
+	return must(scanVarsCommon(br, false, parseTo, a))
 }
 
-func scanVarsLn[T any](br *Reader, parser func([]byte) (T, error), a ...*T) (int, error) {
-	return must(scanVarsLnCommon(br, parser, a...))
+func scanVarsLn[T any](br *Reader, parseTo parseToFunc[T], a ...T) (int, error) {
+	return must(scanVarsLnCommon(br, parseTo, a))
 }

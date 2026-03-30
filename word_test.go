@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func Test_printWordsCommon(t *testing.T) {
+func Test_printWordSlice(t *testing.T) {
 	type testCase[T ~string] struct {
 		name    string
 		opts    writeOpts
@@ -69,7 +69,7 @@ func Test_printWordsCommon(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
 			bw := NewWriter(buf)
-			gotN, gotErr := printWordsCommon(bw, tt.opts, tt.a)
+			gotN, gotErr := printSliceCommon(bw, tt.opts, printWord, tt.a)
 			if gotErr != tt.wantErr {
 				t.Errorf("error = %v, want %v", gotErr, tt.wantErr)
 			}

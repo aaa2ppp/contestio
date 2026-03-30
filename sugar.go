@@ -26,15 +26,15 @@ func ScanSliceLn[S ~[]T, T any](br *Reader, a Parser[S, T]) (S, error) {
 	return scanSliceLn(br, a.Parse, a.Slice())
 }
 
-type ValAppender[S ~[]T, T any] interface {
+type Printer[S ~[]T, T any] interface {
 	Slice[S, T]
-	AppendVal(b []byte, v T) []byte
+	Print(bw *Writer, v T) error
 }
 
-func PrintSlice[S ~[]T, T any](bw *Writer, op WO, a ValAppender[S, T]) (int, error) {
-	return printSlice(bw, op, a.AppendVal, a.Slice())
+func PrintSlice[S ~[]T, T any](bw *Writer, op WO, a Printer[S, T]) (int, error) {
+	return printSlice(bw, op, a.Print, a.Slice())
 }
 
-func PrintSliceLn[S ~[]T, T any](bw *Writer, a ValAppender[S, T]) (int, error) {
-	return printSliceLn(bw, a.AppendVal, a.Slice())
+func PrintSliceLn[S ~[]T, T any](bw *Writer, a Printer[S, T]) (int, error) {
+	return printSliceLn(bw, a.Print, a.Slice())
 }

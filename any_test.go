@@ -15,13 +15,12 @@ import (
 	"unsafe"
 )
 
-func Test_scanAnyCommon(t *testing.T) {
+func TestScanAny(t *testing.T) {
 	panicErr := errors.New("panic")
 
 	tests := []struct {
 		name       string
 		input      string
-		stopAtEol  bool
 		args       []any
 		wantN      int
 		wantErr    bool
@@ -31,7 +30,6 @@ func Test_scanAnyCommon(t *testing.T) {
 		{
 			name:       "two ints",
 			input:      "123 456",
-			stopAtEol:  false,
 			args:       []any{new(int), new(int)},
 			wantN:      2,
 			wantValues: []any{123, 456},
@@ -39,7 +37,6 @@ func Test_scanAnyCommon(t *testing.T) {
 		{
 			name:       "int and float",
 			input:      "10 3.14",
-			stopAtEol:  false,
 			args:       []any{new(int), new(float64)},
 			wantN:      2,
 			wantValues: []any{10, 3.14},
@@ -47,58 +44,37 @@ func Test_scanAnyCommon(t *testing.T) {
 		{
 			name:       "int and string",
 			input:      "42 hello",
-			stopAtEol:  false,
 			args:       []any{new(int), new(string)},
 			wantN:      2,
 			wantValues: []any{42, "hello"},
 		},
 		{
-			name:      "EOF before enough tokens",
-			input:     "123",
-			stopAtEol: false,
-			args:      []any{new(int), new(int)},
-			wantN:     1,
-			wantErr:   true, // io.ErrUnexpectedEOF
+			name:    "EOF before enough tokens",
+			input:   "123",
+			args:    []any{new(int), new(int)},
+			wantN:   1,
+			wantErr: true, // io.ErrUnexpectedEOF
 		},
 		{
-			name:      "empty input",
-			input:     "",
-			stopAtEol: false,
-			args:      []any{new(int)},
-			wantN:     0,
-			wantErr:   true, // io.EOF
+			name:    "empty input",
+			input:   "",
+			args:    []any{new(int)},
+			wantN:   0,
+			wantErr: true, // io.EOF
 		},
 		{
-			name:       "stopAtEol stops at newline (one arg)",
-			input:      "123\n456",
-			stopAtEol:  true,
-			args:       []any{new(int)},
-			wantN:      1,
-			wantValues: []any{123},
+			name:    "non-pointer argument",
+			input:   "123",
+			args:    []any{int(0)},
+			wantN:   0,
+			wantErr: true,
 		},
 		{
-			name:      "stopAtEol with two args, newline after first",
-			input:     "123\n456",
-			stopAtEol: true,
-			args:      []any{new(int), new(int)},
-			wantN:     1,
-			wantErr:   true, // skipSpace вернёт EOL при попытке читать второй аргумент
-		},
-		{
-			name:      "non-pointer argument",
-			input:     "123",
-			stopAtEol: false,
-			args:      []any{int(0)},
-			wantN:     0,
-			wantErr:   true,
-		},
-		{
-			name:      "unsupported kind (bool)",
-			input:     "true",
-			stopAtEol: false,
-			args:      []any{new(bool)},
-			wantN:     0,
-			wantErr:   true,
+			name:    "unsupported kind (bool)",
+			input:   "true",
+			args:    []any{new(bool)},
+			wantN:   0,
+			wantErr: true,
 		},
 		{
 			name:      "untyped nil",
@@ -125,7 +101,6 @@ func Test_scanAnyCommon(t *testing.T) {
 		{
 			name:       "mixed types with extra spaces",
 			input:      "   -5  \t 2.718  \n  word  ",
-			stopAtEol:  false,
 			args:       []any{new(int), new(float64), new(string)},
 			wantN:      3,
 			wantValues: []any{-5, 2.718, "word"},
@@ -133,26 +108,25 @@ func Test_scanAnyCommon(t *testing.T) {
 		{
 			name:       "MyInt/MyFloat/MyString",
 			input:      "   -5  \t 2.718  \n  word  ",
-			stopAtEol:  false,
 			args:       []any{new(MyInt), new(MyFloat), new(MyString)},
 			wantN:      3,
 			wantValues: []any{MyInt(-5), MyFloat(2.718), MyString("word")},
 		},
 	}
 
-	catchPanic := func(fn func(*Reader, bool, ...any) (int, error), br *Reader, stopAtEol bool, a ...any) (_ int, err error) {
+	catchPanic := func(fn func(*Reader, ...any) (int, error), br *Reader, a ...any) (_ int, err error) {
 		defer func() {
 			if p := recover(); p != nil {
 				err = fmt.Errorf("%w: %v", panicErr, p)
 			}
 		}()
-		return fn(br, stopAtEol, a...)
+		return fn(br, a...)
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
-			n, err := catchPanic(scanAnyCommon, br, tt.stopAtEol, tt.args...)
+			n, err := catchPanic(ScanAny, br, tt.args...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -174,7 +148,7 @@ func Test_scanAnyCommon(t *testing.T) {
 	}
 }
 
-func Test_scanAnyLnCommon(t *testing.T) {
+func TestScanAnyLn(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      string
@@ -230,7 +204,7 @@ func Test_scanAnyLnCommon(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
-			n, err := scanAnyLnCommon(br, tt.args...)
+			n, err := ScanAnyLn(br, tt.args...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -249,7 +223,7 @@ func Test_scanAnyLnCommon(t *testing.T) {
 	}
 }
 
-func Test_printAnyCommon(t *testing.T) {
+func TestPrintAny(t *testing.T) {
 	panicErr := errors.New("panic")
 
 	tests := []struct {
@@ -412,15 +386,17 @@ func Test_printAnyCommon(t *testing.T) {
 			buf := &bytes.Buffer{}
 			w := NewWriter(buf)
 
-			n, err := catchPanic(printAnyCommon, w, tt.opts, tt.args...)
+			n, err := catchPanic(PrintAny, w, tt.opts, tt.args...)
 			_ = w.Flush()
 
+			// TODO: переписать, чтобы было совместимо с флагом must
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if errors.Is(err, panicErr) != tt.wantPanic {
 				t.Errorf("panic = %v, wantPanic %v", err, tt.wantPanic)
 			}
+
 			if n != tt.wantN {
 				t.Errorf("n = %v, want %v", n, tt.wantN)
 			}
@@ -433,8 +409,10 @@ func Test_printAnyCommon(t *testing.T) {
 	}
 }
 
+const anyBulkN = 1 << 10 // 1K
+
 func test_scanPrintAnyInt_bulk[T Int](t *testing.T) {
-	N := 1 << 20
+	N := anyBulkN
 	rand := rand.New(rand.NewSource(1))
 	nums := generateInts[T](rand, N)
 	input := makeIntsInput(nil, nums, 1)
@@ -443,7 +421,7 @@ func test_scanPrintAnyInt_bulk[T Int](t *testing.T) {
 		res := make([]T, len(nums))
 		br := NewReader(bytes.NewReader(input))
 		for i := range res {
-			scanAnyCommon(br, false, &res[i])
+			ScanAny(br, &res[i])
 		}
 		if !reflect.DeepEqual(res, nums) {
 			t.Errorf("scanAnyCommon for %T fail", res[0])
@@ -455,7 +433,7 @@ func test_scanPrintAnyInt_bulk[T Int](t *testing.T) {
 		bw := NewWriter(&out)
 		op := WO{End: " "}
 		for i := range nums {
-			printAnyCommon(bw, op, &nums[i])
+			PrintAny(bw, op, &nums[i])
 		}
 		bw.Flush()
 		wantOut := bytes.TrimSpace(input)
@@ -467,7 +445,7 @@ func test_scanPrintAnyInt_bulk[T Int](t *testing.T) {
 }
 
 func test_scanPrintAnyFloat_bulk[T Float](t *testing.T) {
-	N := 1 << 20
+	N := anyBulkN
 	rand := rand.New(rand.NewSource(1))
 	nums := generateFloats[T](rand, N)
 	input := makeFloatsInput(nil, nums, 1)
@@ -476,7 +454,7 @@ func test_scanPrintAnyFloat_bulk[T Float](t *testing.T) {
 		res := make([]T, len(nums))
 		br := NewReader(bytes.NewReader(input))
 		for i := range res {
-			scanAnyCommon(br, false, &res[i])
+			ScanAny(br, &res[i])
 		}
 		if !reflect.DeepEqual(res, nums) {
 			t.Errorf("scanAnyCommon for %T fail", res[0])
@@ -488,7 +466,7 @@ func test_scanPrintAnyFloat_bulk[T Float](t *testing.T) {
 		bw := NewWriter(&out)
 		op := WO{End: " "}
 		for i := range nums {
-			printAnyCommon(bw, op, &nums[i])
+			PrintAny(bw, op, &nums[i])
 		}
 		bw.Flush()
 		wantOut := bytes.TrimSpace(input)
@@ -500,7 +478,7 @@ func test_scanPrintAnyFloat_bulk[T Float](t *testing.T) {
 }
 
 func test_scanPrintAnyWord_bulk[T ~string](t *testing.T) {
-	N := 1 << 20
+	N := anyBulkN
 	rand := rand.New(rand.NewSource(1))
 	nums := generateFloats[float64](rand, N)
 	input := makeFloatsInput(nil, nums, 1)
@@ -510,7 +488,7 @@ func test_scanPrintAnyWord_bulk[T ~string](t *testing.T) {
 		res := make([]T, len(nums))
 		br := NewReader(bytes.NewReader(input))
 		for i := range res {
-			scanAnyCommon(br, false, &res[i])
+			ScanAny(br, &res[i])
 		}
 		resAsStrings := *(*[]string)(unsafe.Pointer(&res))
 		if !reflect.DeepEqual(resAsStrings, words) {
@@ -523,7 +501,7 @@ func test_scanPrintAnyWord_bulk[T ~string](t *testing.T) {
 		bw := NewWriter(&out)
 		op := WO{End: " "}
 		for i := range words {
-			printAnyCommon(bw, op, &words[i])
+			PrintAny(bw, op, &words[i])
 		}
 		bw.Flush()
 		wantOut := bytes.TrimSpace(input)
@@ -555,9 +533,9 @@ func Test_scanPrintAny_bulk(t *testing.T) {
 	t.Run("MyString", test_scanPrintAnyWord_bulk[MyString])
 }
 
-func Benchmark_scanAny(b *testing.B) {
+func BenchmarkScanAny(b *testing.B) {
+	N := 1 << 20
 	b.Run("Int", func(b *testing.B) {
-		N := 1 << 20
 		rand := rand.New(rand.NewSource(1))
 		nums := generateInts[int](rand, N)
 		input := makeIntsInput(rand, nums, 5)
@@ -569,18 +547,13 @@ func Benchmark_scanAny(b *testing.B) {
 			res := memory
 			b.StartTimer()
 			for j := 0; j+3 < len(res); j += 3 {
-				scanAnyCommon(r, false, &res[j], &res[j+1], &res[j+2])
-			}
-			switch len(res) % 3 {
-			case 1:
-				scanAnyCommon(r, false, &res[len(res)-1])
-			case 2:
-				scanAnyCommon(r, false, &res[len(res)-2], &res[len(res)-1])
+				if n, err := ScanAny(r, &res[j], &res[j+1], &res[j+2]); err != nil {
+					b.Fatalf("ScanAny: %d, %v", n, err)
+				}
 			}
 		}
 	})
 	b.Run("Float", func(b *testing.B) {
-		N := 1 << 20
 		rand := rand.New(rand.NewSource(1))
 		nums := generateFloats[float64](rand, N)
 		input := makeFloatsInput(rand, nums, 5)
@@ -592,18 +565,13 @@ func Benchmark_scanAny(b *testing.B) {
 			res := memory
 			b.StartTimer()
 			for j := 0; j+3 < len(res); j += 3 {
-				scanAnyCommon(r, false, &res[j], &res[j+1], &res[j+2])
-			}
-			switch len(res) % 3 {
-			case 1:
-				scanAnyCommon(r, false, &res[len(res)-1])
-			case 2:
-				scanAnyCommon(r, false, &res[len(res)-2], &res[len(res)-1])
+				if n, err := ScanAny(r, &res[j], &res[j+1], &res[j+2]); err != nil {
+					b.Fatalf("ScanAny: %d, %v", n, err)
+				}
 			}
 		}
 	})
 	b.Run("Word", func(b *testing.B) {
-		N := 1 << 20
 		rand := rand.New(rand.NewSource(1))
 		nums := generateFloats[float64](rand, N)
 		input := makeFloatsInput(rand, nums, 5)
@@ -615,54 +583,49 @@ func Benchmark_scanAny(b *testing.B) {
 			res := memory
 			b.StartTimer()
 			for j := 0; j+3 < len(res); j += 3 {
-				scanAnyCommon(r, false, &res[j], &res[j+1], &res[j+2])
-			}
-			switch len(res) % 3 {
-			case 1:
-				scanAnyCommon(r, false, &res[len(res)-1])
-			case 2:
-				scanAnyCommon(r, false, &res[len(res)-2], &res[len(res)-1])
+				if n, err := ScanAny(r, &res[j], &res[j+1], &res[j+2]); err != nil {
+					b.Fatalf("ScanAny: %d, %v", n, err)
+				}
 			}
 		}
 	})
 }
 
-func Benchmark_printAnyVal(b *testing.B) {
-	N := 1 << 20
+func BenchmarkPrintAnyVal(b *testing.B) {
+	N := anyBulkN
+
 	b.Run("Int", func(b *testing.B) {
 		rand := rand.New(rand.NewSource(1))
 		nums := generateInts[int](rand, N)
 		w := NewWriter(io.Discard)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
+			var v1, v2, v3 int
 			for j := 0; j+3 < len(nums); j += 3 {
-				PrintAny(w, lineWO, nums[j], nums[j+1], nums[j+2])
-			}
-			switch len(nums) % 3 {
-			case 1:
-				PrintAny(w, lineWO, nums[len(nums)-1])
-			case 2:
-				PrintAny(w, lineWO, nums[len(nums)-2], nums[len(nums)-1])
+				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
+				if n, err := PrintAny(w, lineWO, v1, v2, v3); err != nil {
+					b.Fatalf("PrintAny: %d, %v", n, err)
+				}
 			}
 		}
 	})
+
 	b.Run("Float", func(b *testing.B) {
 		rand := rand.New(rand.NewSource(1))
 		nums := generateFloats[float64](rand, N)
 		w := NewWriter(io.Discard)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
+			var v1, v2, v3 float64
 			for j := 0; j+3 < len(nums); j += 3 {
-				PrintAny(w, lineWO, nums[j], nums[j+1], nums[j+2])
-			}
-			switch len(nums) % 3 {
-			case 1:
-				PrintAny(w, lineWO, nums[len(nums)-1])
-			case 2:
-				PrintAny(w, lineWO, nums[len(nums)-2], nums[len(nums)-1])
+				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
+				if n, err := PrintAny(w, lineWO, v1, v2, v3); err != nil {
+					b.Fatalf("PrintAny: %d, %v", n, err)
+				}
 			}
 		}
 	})
+
 	b.Run("String", func(b *testing.B) {
 		rand := rand.New(rand.NewSource(1))
 		nums := generateFloats[float64](rand, N)
@@ -670,21 +633,20 @@ func Benchmark_printAnyVal(b *testing.B) {
 		w := NewWriter(io.Discard)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
+			var v1, v2, v3 string
 			for j := 0; j+3 < len(words); j += 3 {
-				PrintAny(w, lineWO, words[j], words[j+1], words[j+2])
-			}
-			switch len(nums) % 3 {
-			case 1:
-				PrintAny(w, lineWO, words[len(words)-1])
-			case 2:
-				PrintAny(w, lineWO, words[len(words)-2], words[len(words)-1])
+				v1, v2, v3 = words[j], words[j+1], words[j+2]
+				if n, err := PrintAny(w, lineWO, v1, v2, v3); err != nil {
+					b.Fatalf("PrintAny: %d, %v", n, err)
+				}
 			}
 		}
 	})
 }
 
-func Benchmark_printAnyPtr(b *testing.B) {
-	N := 1 << 20
+func BenchmarkPrintAnyPtr(b *testing.B) {
+	N := anyBulkN
+
 	b.Run("Int", func(b *testing.B) {
 		rand := rand.New(rand.NewSource(1))
 		nums := generateInts[int](rand, N)
@@ -694,18 +656,13 @@ func Benchmark_printAnyPtr(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j+3 < len(nums); j += 3 {
 				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
-				PrintAny(w, lineWO, &v1, &v2, &v3)
-			}
-			switch len(nums) % 3 {
-			case 1:
-				v1 = nums[len(nums)-1]
-				PrintAny(w, lineWO, &v1)
-			case 2:
-				v1, v2 := nums[len(nums)-2], nums[len(nums)-1]
-				PrintAny(w, lineWO, &v1, &v2)
+				if n, err := PrintAny(w, lineWO, &v1, &v2, &v3); err != nil {
+					b.Fatalf("PrintAny: %d, %v", n, err)
+				}
 			}
 		}
 	})
+
 	b.Run("Float", func(b *testing.B) {
 		rand := rand.New(rand.NewSource(1))
 		nums := generateFloats[float64](rand, N)
@@ -715,18 +672,13 @@ func Benchmark_printAnyPtr(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j+3 < len(nums); j += 3 {
 				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
-				PrintAny(w, lineWO, &v1, &v2, &v3)
-			}
-			switch len(nums) % 3 {
-			case 1:
-				v1 = nums[len(nums)-1]
-				PrintAny(w, lineWO, &v1)
-			case 2:
-				v1, v2 := nums[len(nums)-2], nums[len(nums)-1]
-				PrintAny(w, lineWO, &v1, &v2)
+				if n, err := PrintAny(w, lineWO, &v1, &v2, &v3); err != nil {
+					b.Fatalf("PrintAny: %d, %v", n, err)
+				}
 			}
 		}
 	})
+
 	b.Run("String", func(b *testing.B) {
 		rand := rand.New(rand.NewSource(1))
 		nums := generateFloats[float64](rand, N)
@@ -740,15 +692,9 @@ func Benchmark_printAnyPtr(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j+3 < len(words); j += 3 {
 				v1, v2, v3 = words[j], words[j+1], words[j+2]
-				PrintAny(w, lineWO, &v1, &v2, &v3)
-			}
-			switch len(nums) % 3 {
-			case 1:
-				v1 = words[len(words)-1]
-				PrintAny(w, lineWO, &v1)
-			case 2:
-				v1, v2 := words[len(words)-2], words[len(words)-1]
-				PrintAny(w, lineWO, &v1, &v2)
+				if n, err := PrintAny(w, lineWO, &v1, &v2, &v3); err != nil {
+					b.Fatalf("PrintAny: %d, %v", n, err)
+				}
 			}
 		}
 	})

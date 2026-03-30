@@ -14,10 +14,20 @@ func parseFloat[T Float](token []byte) (T, error) {
 	return T(v), err
 }
 
+var _ parseFunc[float64] = parseFloat[float64]
+
+func parseFloatTo[T Float](token []byte, p *T) error { return parseValTo(token, parseFloat, p) }
+
+var _ parseToFunc[*int] = parseIntTo[int]
+
 func appendFloat[T Float](buf []byte, v T) []byte {
 	bitSize := int(unsafe.Sizeof(T(0))) << 3
 	return strconv.AppendFloat(buf, float64(v), 'g', -1, bitSize)
 }
+
+func printFloat[T Float](bw *Writer, v T) error { return printVal(bw, appendFloat[T], v) }
+
+var _ printFunc[float32] = printFloat[float32]
 
 // ScanFloats считывает последовательность чисел с плавающей точкой из br в слайс a.
 // Возвращает количество успешно считанных элементов и ошибку.
@@ -29,30 +39,30 @@ func ScanFloatsLn[S ~[]T, T Float](br *Reader, a S) (S, error) { return scanSlic
 
 // ScanFloat считывает одно или несколько чисел с плавающей точкой из br и сохраняет их по указателям a.
 // Возвращает количество считанных чисел и ошибку.
-func ScanFloat[T Float](br *Reader, a ...*T) (int, error) { return scanVars(br, parseFloat, a...) }
+func ScanFloat[T Float](br *Reader, a ...*T) (int, error) { return scanVars(br, parseFloatTo, a...) }
 
 // ScanFloatLn считывает одно или несколько чисел с плавающей точкой из текущей строки и сохраняет их
 // по указателям a. Пропускает оставшуюся часть строки до конца. Возвращает количество считанных чисел и ошибку.
-func ScanFloatLn[T Float](br *Reader, a ...*T) (int, error) { return scanVarsLn(br, parseFloat, a...) }
+func ScanFloatLn[T Float](br *Reader, a ...*T) (int, error) {
+	return scanVarsLn(br, parseFloatTo, a...)
+}
 
 // PrintFloats выводит слайс чисел с плавающей точкой a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintFloats[T Float](bw *Writer, op WO, a []T) (int, error) {
-	return printSlice(bw, op, appendFloat, a)
+	return printSlice(bw, op, printFloat, a)
 }
 
 // PrintFloatsLn выводит слайс чисел с плавающей точкой a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
-func PrintFloatsLn[T Float](bw *Writer, a []T) (int, error) { return printSliceLn(bw, appendFloat, a) }
+func PrintFloatsLn[T Float](bw *Writer, a []T) (int, error) { return printSliceLn(bw, printFloat, a) }
 
 // PrintFloat выводит одно или несколько чисел с плавающей точкой a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintFloat[T Float](bw *Writer, op WO, a ...T) (int, error) {
-	return printVals(bw, op, appendFloat, a...)
+	return printVals(bw, op, printFloat, a...)
 }
 
 // PrintFloatLn выводит одно или несколько чисел с плавающей точкой a в bw,
 // разделяя пробелами и завершая переводом строки. Возвращает количество выведенных элементов и ошибку.
-func PrintFloatLn[T Float](bw *Writer, a ...T) (int, error) {
-	return printValsLn(bw, appendFloat, a...)
-}
+func PrintFloatLn[T Float](bw *Writer, a ...T) (int, error) { return printValsLn(bw, printFloat, a...) }

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func Test_printSlice(t *testing.T) {
+func Test_printIntSlice(t *testing.T) {
 	sliceWO := writeOpts{Begin: "[]int{", Sep: ", ", End: "}"}
 
 	tests := []struct {
@@ -70,7 +70,7 @@ func Test_printSlice(t *testing.T) {
 			var out strings.Builder
 			bw := NewWriterSize(&out, tt.bufSize)
 
-			gotN, gotErr := printSliceCommon(bw, tt.op, appendInt[int], tt.a)
+			gotN, gotErr := printSliceCommon(bw, tt.op, printInt, tt.a)
 			bw.Flush()
 
 			if gotErr != nil {
