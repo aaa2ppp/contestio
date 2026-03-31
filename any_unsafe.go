@@ -22,18 +22,19 @@ func getAnyPointer[T any](x any) *T {
 	return (*T)((*(*eface)(unsafe.Pointer(&x))).data)
 }
 
-func getAnyValue[T any](x any) T { return *getAnyPointer[T](x) }
-
 func printAnyInt[T Int](bw *Writer, x any) error { // x must be Int value or pointer
-	return printInt(bw, getAnyValue[T](x))
+	p := getAnyPointer[T](x)
+	return printInt(bw, *p)
 }
 
 func printAnyFloat[T Float](bw *Writer, x any) error { // x must be Float value or pointer
-	return printFloat(bw, getAnyValue[T](x))
+	p := getAnyPointer[T](x)
+	return printFloat(bw, *p)
 }
 
-func printAnyWord[T ~string](bw *Writer, x any) error { // x must be any string value or pointer
-	return printWord(bw, getAnyValue[T](x))
+func printAnyString[T ~string](bw *Writer, x any) error { // x must be any string value or pointer
+	p := getAnyPointer[T](x)
+	return printString(bw, *p)
 }
 
 var printAnyTab = []printAnyFunc{
@@ -50,5 +51,5 @@ var printAnyTab = []printAnyFunc{
 	reflect.Uintptr: printAnyInt[uintptr],
 	reflect.Float32: printAnyFloat[float32],
 	reflect.Float64: printAnyFloat[float64],
-	reflect.String:  printAnyWord[string],
+	reflect.String:  printAnyString[string],
 }

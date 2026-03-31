@@ -5,34 +5,35 @@ package contestio
 import "testing"
 
 func Test_getAnyPointerValue(t *testing.T) {
-	checkGetAnyPointerValue(t, int(-42))
-	checkGetAnyPointerValue(t, int8(-123))
-	checkGetAnyPointerValue(t, int16(-12345))
-	checkGetAnyPointerValue(t, int32(-1234567890))
-	checkGetAnyPointerValue(t, int64(-1234567890123456789))
-	checkGetAnyPointerValue(t, uint(42))
-	checkGetAnyPointerValue(t, uint8(123))
-	checkGetAnyPointerValue(t, uint16(12345))
-	checkGetAnyPointerValue(t, uint32(1234567890))
-	checkGetAnyPointerValue(t, uint64(1234567890123456789))
-	checkGetAnyPointerValue(t, float32(3.1415927))
-	checkGetAnyPointerValue(t, float64(3.141592653589793))
-	checkGetAnyPointerValue(t, "Hello, 世界")
-	checkGetAnyPointerValue(t, MyInt(69))
-	checkGetAnyPointerValue(t, MyFloat(2.718281828459045))
-	checkGetAnyPointerValue(t, MyString("Don't Worry, Be Happy"))
+	checkGetAnyPointer(t, int(-42))
+	checkGetAnyPointer(t, int8(-123))
+	checkGetAnyPointer(t, int16(-12345))
+	checkGetAnyPointer(t, int32(-1234567890))
+	checkGetAnyPointer(t, int64(-1234567890123456789))
+	checkGetAnyPointer(t, uint(42))
+	checkGetAnyPointer(t, uint8(123))
+	checkGetAnyPointer(t, uint16(12345))
+	checkGetAnyPointer(t, uint32(1234567890))
+	checkGetAnyPointer(t, uint64(1234567890123456789))
+	checkGetAnyPointer(t, float32(3.1415927))
+	checkGetAnyPointer(t, float64(3.141592653589793))
+	checkGetAnyPointer(t, "Hello, 世界")
+	checkGetAnyPointer(t, MyInt(69))
+	checkGetAnyPointer(t, MyFloat(2.718281828459045))
+	checkGetAnyPointer(t, MyString("Don't Worry, Be Happy"))
 
 }
 
-func checkGetAnyPointerValue[T comparable](t *testing.T, v T) {
+func checkGetAnyPointer[T comparable](t *testing.T, val T) {
 	t.Helper()
-	if ptr := getAnyPointer[T](any(&v)); ptr != &v {
-		t.Errorf("getPointer for type %T: ptr = %p, want %p", v, ptr, &v)
+
+	anyPtr := any(&val)
+	anyVal := any(val)
+
+	if gotPtr := getAnyPointer[T](anyPtr); gotPtr != &val {
+		t.Errorf("getAnyPointer: fail get pointer for type %T: gotPtr = %p, want %p", val, gotPtr, &val)
 	}
-	if val := getAnyValue[T](any(v)); val != v {
-		t.Errorf("getValue for type %T: val = %v, want %v", v, val, v)
-	}
-	if val := getAnyValue[T](any(&v)); val != v {
-		t.Errorf("getValue for type %T: val = %v, want %v", v, val, v)
+	if gotVal := *getAnyPointer[T](anyVal); gotVal != val {
+		t.Errorf("getAnyPointer: fail get value for type %T: gotVal = %val, want %val", val, gotVal, val)
 	}
 }

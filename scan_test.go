@@ -10,7 +10,7 @@ import (
 )
 
 func godParser(b []byte) (string, error)    { return string(b), nil }
-func godParserTo(b []byte, p *string) error { return parseValTo(b, godParser, p) }
+func godParserTo(b []byte, p *string) error { return parseToPtr(b, godParser, p) }
 
 var parseError = errors.New("parse error")
 

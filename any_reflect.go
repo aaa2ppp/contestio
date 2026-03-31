@@ -43,7 +43,7 @@ func printAnyString(bw *Writer, x any) error { // x must be any string value or 
 	} else {
 		v = reflect.ValueOf(x).String()
 	}
-	return printWord(bw, v)
+	return printString(bw, v)
 }
 
 var printAnyTab = []printAnyFunc{

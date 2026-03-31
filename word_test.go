@@ -69,7 +69,7 @@ func Test_printWordSlice(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
 			bw := NewWriter(buf)
-			gotN, gotErr := printSliceCommon(bw, tt.opts, printWord, tt.a)
+			gotN, gotErr := printSliceCommon(bw, tt.opts, printString, tt.a)
 			if gotErr != tt.wantErr {
 				t.Errorf("error = %v, want %v", gotErr, tt.wantErr)
 			}

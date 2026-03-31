@@ -6,6 +6,16 @@ import (
 )
 
 type parseFunc[T any] func([]byte) (T, error)
+type parseToFunc[T any] func([]byte, T) error
+
+func parseToPtr[T any](token []byte, parse parseFunc[T], p *T) error {
+	v, err := parse(token)
+	if err != nil {
+		return err
+	}
+	*p = v
+	return nil
+}
 
 func scanSliceCommon[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
 	for i := range a {
@@ -61,17 +71,6 @@ func scanSliceLnCommon[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error
 		a = append(a, v)
 		n++
 	}
-}
-
-type parseToFunc[T any] func([]byte, T) error
-
-func parseValTo[T any](token []byte, parse parseFunc[T], p *T) error {
-	v, err := parse(token)
-	if err != nil {
-		return err
-	}
-	*p = v
-	return nil
 }
 
 func scanVarsCommon[T any](br *Reader, stopAtEol bool, parseTo parseToFunc[T], a []T) (int, error) {

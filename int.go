@@ -83,14 +83,7 @@ func parseInt[T Int](token []byte) (T, error) {
 	}
 	return T(u64), nil
 }
-
-var _ parseFunc[int] = parseInt[int]
-
-func parseIntTo[T Int](token []byte, p *T) error {
-	return parseValTo(token, parseInt, p)
-}
-
-var _ parseToFunc[*int] = parseIntTo[int]
+func parseIntToPtr[T Int](token []byte, p *T) error { return parseToPtr(token, parseInt, p) }
 
 func appendInt[T Int](buf []byte, v T) []byte {
 	signed := ^T(0) < 0
@@ -100,19 +93,23 @@ func appendInt[T Int](buf []byte, v T) []byte {
 		return strconv.AppendUint(buf, uint64(v), 10)
 	}
 }
+func printInt[T Int](bw *Writer, v T) error { return writeAppendFunc(bw, appendInt[T], v) }
 
-func printInt[T Int](bw *Writer, v T) error { return printVal(bw, appendInt[T], v) }
-
-var _ printFunc[int] = printInt[int]
+var _ parseFunc[int] = parseInt[int]
+var _ parseToFunc[*int] = parseIntToPtr[int]
+var _ appendValFunc[int] = appendInt[int]
+var _ printValFunc[int] = printInt[int]
 
 // ScanInt считывает одно или несколько целых чисел из br и сохраняет их по указателям a.
 // Возвращает количество считанных чисел и ошибку.
-func ScanInt[S []*T, T Int](br *Reader, a ...*T) (int, error) { return scanVars(br, parseIntTo, a...) }
+func ScanInt[S []*T, T Int](br *Reader, a ...*T) (int, error) {
+	return scanVars(br, parseIntToPtr, a...)
+}
 
 // ScanIntLn считывает одно или несколько целых чисел из текущей строки и сохраняет их по
 // указателям a. Пропускает оставшуюся часть строки до конца. Возвращает количество считанных
 // чисел и ошибку.
-func ScanIntLn[T Int](br *Reader, a ...*T) (int, error) { return scanVarsLn(br, parseIntTo, a...) }
+func ScanIntLn[T Int](br *Reader, a ...*T) (int, error) { return scanVarsLn(br, parseIntToPtr, a...) }
 
 // ScanInts считывает последовательность целых чисел из br в слайс a.
 // Возвращает количество успешно считанных элементов и первую ошибку.
