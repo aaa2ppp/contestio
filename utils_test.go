@@ -20,15 +20,15 @@ func parseIntStd[T Int](b []byte) (T, error) {
 }
 
 func generateInts[T Int](rand *rand.Rand, n int) []T {
-	bitSize := int(unsafe.Sizeof(T(0))) << 3
+	size := int(unsafe.Sizeof(T(0)))
 	signed := ^T(0) < 0
-	if signed {
-		bitSize--
-	}
 
 	nums := make([]T, n)
 	for i := range nums {
-		bits := rand.Intn(bitSize) + 1
+		bits := (rand.Intn(size) + 1) << 3
+		if signed {
+			bits--
+		}
 		mask := (uint64(1)<<bits - 1)
 		x := rand.Uint64()
 		n := T(x & mask)
