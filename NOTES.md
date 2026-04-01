@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:022 -->
+<!-- next-note-id:023 -->
 
 ## Open Questions
 
@@ -69,6 +69,21 @@
   English version of the README.
 
 - **003 [ ] Translate all inline documentation to English (2026-03-09)**
+
+- **022 [ ] Replace sugar-specific slice types with kind-based dispatch (2026-04-01)**
+
+  Currently, the `sugar` build tag provides generic `ScanSlice` and `PrintSlice` functions that rely on custom slice types implementing `Parser` and `Printer` interfaces (e.g., `Ints[T]`). This forces users to wrap ordinary slices (like `[]int`) in these types, adding boilerplate and cognitive overhead.
+
+  **Proposal:** Remove the `sugar` build tag and the associated types/interfaces. Instead, use the same kind‑based dispatch mechanism (reflection/unsafe) used in `ScanAny`/`PrintAny` to handle slices of built‑in types directly. This will:
+    - Allow `ScanSlice` and `PrintSlice` to work with ordinary slices (`[]int`, `[]float64`, `[]string`) without any wrappers.
+    - Enable the optimised `printSliceAppend` path for numeric slices, matching the performance of `PrintInts`/`PrintFloats`.
+    - Simplify the API by eliminating unnecessary abstraction.
+    - Unify the codebase under a single consistent approach for both scalar and slice I/O.
+
+  **Goals:**
+    - Verify performance is at least as good as current sugar (ideally better due to `printSliceAppend`).
+    - Keep the public API clean and straightforward for contest usage.
+    - Remove `sugar` and `any` build tag; release v0.4.0 with unified I/O support.
 
 ## Made
 
