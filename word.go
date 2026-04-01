@@ -38,13 +38,13 @@ func ScanWordsLn[S ~[]T, T ~string](br *Reader, a S) (S, error) { return scanSli
 // PrintWord выводит одну или несколько строк a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintWord[T ~string](bw *Writer, op WO, a ...T) (int, error) {
-	return printVals(bw, op, printString, a...)
+	return printSlice(bw, op, printString, a)
 }
 
 // PrintWordLn выводит одну или несколько строк a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintWordLn[T ~string](bw *Writer, a ...T) (int, error) {
-	return printValsLn(bw, printString, a...)
+	return printSlice(bw, lineWO, printString, a)
 }
 
 // PrintWords выводит слайс строк a в bw с заданными опциями форматирования.
@@ -55,4 +55,6 @@ func PrintWords[T ~string](bw *Writer, op WO, a []T) (int, error) {
 
 // PrintWordsLn выводит слайс строк a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
-func PrintWordsLn[T ~string](bw *Writer, a []T) (int, error) { return printSliceLn(bw, printString, a) }
+func PrintWordsLn[T ~string](bw *Writer, a []T) (int, error) {
+	return printSlice(bw, lineWO, printString, a)
+}

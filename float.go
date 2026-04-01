@@ -47,20 +47,23 @@ func ScanFloatsLn[S ~[]T, T Float](br *Reader, a S) (S, error) { return scanSlic
 // PrintFloat выводит одно или несколько чисел с плавающей точкой a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintFloat[T Float](bw *Writer, op WO, a ...T) (int, error) {
-	return printVals(bw, op, printFloat, a...)
+	return printSliceAppend(bw, op, appendFloat, a)
 }
 
 // PrintFloatLn выводит одно или несколько чисел с плавающей точкой a в bw,
 // разделяя пробелами и завершая переводом строки. Возвращает количество выведенных элементов и ошибку.
-func PrintFloatLn[T Float](bw *Writer, a ...T) (int, error) { return printValsLn(bw, printFloat, a...) }
+func PrintFloatLn[T Float](bw *Writer, a ...T) (int, error) {
+	return printSliceAppend(bw, lineWO, appendFloat, a)
+}
 
 // PrintFloats выводит слайс чисел с плавающей точкой a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintFloats[T Float](bw *Writer, op WO, a []T) (int, error) {
-	return printSlice(bw, op, printFloat, a)
+	return printSliceAppend(bw, op, appendFloat, a)
 }
 
 // PrintFloatsLn выводит слайс чисел с плавающей точкой a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
-func PrintFloatsLn[T Float](bw *Writer, a []T) (int, error) { return printSliceLn(bw, printFloat, a) }
-
+func PrintFloatsLn[T Float](bw *Writer, a []T) (int, error) {
+	return printSliceAppend(bw, lineWO, appendFloat, a)
+}

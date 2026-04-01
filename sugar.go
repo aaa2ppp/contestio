@@ -36,5 +36,5 @@ func PrintSlice[S ~[]T, T any](bw *Writer, op WO, a Printer[S, T]) (int, error) 
 }
 
 func PrintSliceLn[S ~[]T, T any](bw *Writer, a Printer[S, T]) (int, error) {
-	return printSliceLn(bw, a.Print, a.Slice())
+	return printSlice(bw, lineWO, a.Print, a.Slice())
 }

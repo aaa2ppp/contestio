@@ -122,17 +122,23 @@ func ScanIntsLn[S ~[]T, T Int](br *Reader, a S) (S, error) { return scanSliceLn(
 // PrintInt выводит одно или несколько целых чисел a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintInt[T Int](bw *Writer, op WO, a ...T) (int, error) {
-	return printVals(bw, op, printInt, a...)
+	return printSliceAppend(bw, op, appendInt, a)
 }
 
 // PrintIntLn выводит одно или несколько целых чисел a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
-func PrintIntLn[T Int](bw *Writer, a ...T) (int, error) { return printValsLn(bw, printInt, a...) }
+func PrintIntLn[T Int](bw *Writer, a ...T) (int, error) {
+	return printSliceAppend(bw, lineWO, appendInt, a)
+}
 
 // PrintInts выводит слайс целых чисел a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
-func PrintInts[T Int](bw *Writer, op WO, a []T) (int, error) { return printSlice(bw, op, printInt, a) }
+func PrintInts[T Int](bw *Writer, op WO, a []T) (int, error) {
+	return printSliceAppend(bw, op, appendInt, a)
+}
 
 // PrintIntsLn выводит слайс целых чисел a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
-func PrintIntsLn[T Int](bw *Writer, a []T) (int, error) { return printSliceLn(bw, printInt, a) }
+func PrintIntsLn[T Int](bw *Writer, a []T) (int, error) {
+	return printSliceAppend(bw, lineWO, appendInt, a)
+}

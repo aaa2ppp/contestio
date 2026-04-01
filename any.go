@@ -140,8 +140,8 @@ func ScanAnyLn(br *Reader, a ...any) (int, error) { return scanVarsLn(br, parseT
 // Также неправильно (передача значения, а не указателя):
 //
 //	PrintAny(bw, op, data[i])   // аллокация для каждого значения
-func PrintAny(bw *Writer, op WO, a ...any) (int, error) { return printVals(bw, op, printAny, a...) }
+func PrintAny(bw *Writer, op WO, a ...any) (int, error) { return printSlice(bw, op, printAny, a) }
 
 // PrintAnyLn выводит одно или несколько значений a в bw, разделяя пробелами и завершая переводом строки.
 // Работает аналогично PrintAny.
-func PrintAnyLn(bw *Writer, a ...any) (int, error) { return printValsLn(bw, printAny, a...) }
+func PrintAnyLn(bw *Writer, a ...any) (int, error) { return printSlice(bw, lineWO, printAny, a) }

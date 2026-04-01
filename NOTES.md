@@ -70,16 +70,6 @@
 
 - **003 [ ] Translate all inline documentation to English (2026-03-09)**
 
-- **021 [ ] Investigate unification of scan and output cycles (2026-03-28)**
-
-  After adding `ScanAny*` / `PrintAny*` (#020), there was a duplication of logic between `scanVars*` and `scanAny*`, as well as between `printVals*`, `printWords*` and `printAny*`. 
-  
-  It is required that:
-    - Develop a unified implementation that will allow the use of common loops for both typed and reflexive functions.
-    - Keep the public API unchanged during implementation.
-    - Evaluate the impact on performance using existing tests.
-    - Decide whether to implement (or maintain the current approach)
-
 ## Made
 
 - **007 [+] Adjust EOF handling in scanXxxLn functions (2026-03-11) (made:2026-03-11)**
@@ -177,3 +167,15 @@
   The implementation is isolated behind the `any` tag to avoid polluting the main library with reflection overhead; users can enable it explicitly.
 
   **Stage 2:** Postponed. The reflection‑based API proved simpler and performant enough for typical contest usage; generating specialised functions for each call signature is not a priority at this time.
+
+- **021 [+] Investigate unification of scan and output cycles (2026-03-28) (made:2026-04-01)**
+
+  After adding `ScanAny*` / `PrintAny*` (#020), there was a duplication of logic between `scanVars*` and `scanAny*`, as well as between `printVals*`, `printWords*` and `printAny*`. 
+  
+  It is required that:
+    - Develop a unified implementation that will allow the use of common loops for both typed and reflexive functions.
+    - Keep the public API unchanged during implementation.
+    - Evaluate the impact on performance using existing tests.
+    - Decide whether to implement (or maintain the current approach)
+
+  **Made:** Performance remained comparable to the original implementation after adding `printSliceAppend` for numbers; unified loops introduced no significant overhead.
