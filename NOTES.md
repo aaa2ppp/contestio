@@ -1,6 +1,6 @@
 # Notes on the "Contest IO" Project
 
-<!-- next-note-id:023 -->
+<!-- next-note-id:024 -->
 
 ## Open Questions
 
@@ -48,9 +48,13 @@
 
   Should we change the behavior to **not advance** on parse errors (i.e., leave the reader pointing at the beginning of the offending token)? Or should we keep the current behavior but document it clearly? This decision affects all scanning functions and the `nextToken` helper.
 
-
-  
 ## Ideas
+
+- **023 [ ] Add number theory utilities (2026-04-02)**
+
+Library now contains Abs, Gdc and Gdcx under 'math' tag. Consider adding other common mathematical functions missing from std, useful for contests.
+
+**Decision:** Instead of using a build tag, these non-IO utilities will be developed in a separate branch `satellite`. This branch may eventually become its own library or be merged later. The `contestio` core remains focused on IO.
 
 ## Plans
 
