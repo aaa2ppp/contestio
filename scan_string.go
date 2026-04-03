@@ -10,9 +10,9 @@ import (
 // завершающие пробельные символы (пробел, табуляция, \r, \n).
 // io.EOF возвращается только в том случае, если не было прочитано ни одного байта.
 // При любой другой ошибке возвращаются все прочитанные данные и эта ошибка.
-func ScanBytes(r *Reader, delim byte) ([]byte, error) { return must(scanBytes(r, delim)) }
+func ScanBytes(r *Reader, delim byte) ([]byte, error) { return _must(_scanBytes(r, delim)) }
 
-func scanBytes(r *Reader, delim byte) ([]byte, error) {
+func _scanBytes(r *Reader, delim byte) ([]byte, error) {
 	b, err := r.br.ReadBytes(delim)
 	if err != nil && err != io.EOF {
 		return b, err
@@ -31,9 +31,9 @@ func scanBytes(r *Reader, delim byte) ([]byte, error) {
 // завершающие пробельные символы (пробел, табуляция, \r, \n).
 // io.EOF возвращается только в том случае, если не было прочитано ни одного байта.
 // При любой другой ошибке возвращаются все прочитанные данные и эта ошибка.
-func ScanString(r *Reader, delim byte) (string, error) { return must(scanString(r, delim)) }
+func ScanString(r *Reader, delim byte) (string, error) { return _must(_scanString(r, delim)) }
 
-func scanString(r *Reader, delim byte) (string, error) {
-	b, err := scanBytes(r, delim)
-	return unsafeString(b), err
+func _scanString(r *Reader, delim byte) (string, error) {
+	b, err := _scanBytes(r, delim)
+	return _unsafeString(b), err
 }

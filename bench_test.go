@@ -292,7 +292,7 @@ func Benchmark_printInt(b *testing.B) {
 			bw := NewWriter(io.Discard)
 			b.StartTimer()
 
-			if _, err := PrintInts(bw, lineWO, nums); err != nil {
+			if _, err := PrintInts(bw, _lineWO, nums); err != nil {
 				b.Fatalf("PrintInts: %v", err)
 			}
 		}
@@ -386,7 +386,7 @@ func Benchmark_printFloat(b *testing.B) {
 			bw := NewWriter(io.Discard)
 			b.StartTimer()
 
-			PrintFloats(bw, lineWO, nums)
+			PrintFloats(bw, _lineWO, nums)
 		}
 	})
 

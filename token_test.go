@@ -98,7 +98,7 @@ func Test_nextToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := strings.NewReader(tt.input)
 			br := NewReaderSize(r, tt.bufSize)
-			token, err := nextToken(br)
+			token, err := _nextToken(br)
 
 			// проверяем токен и ошибку
 			if string(token) != tt.wantToken {
@@ -141,7 +141,7 @@ func Test_skipSpace(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReaderSize(strings.NewReader(tt.input), tt.bufSize)
-			err := skipSpace(br, tt.stopAtNewLine)
+			err := _skipSpace(br, tt.stopAtNewLine)
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("SkipSpace() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -175,7 +175,7 @@ func Test_skipToNewLine(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReaderSize(strings.NewReader(tt.input), tt.bufSize)
-			err := skipToNewLine(br)
+			err := _skipToNewLine(br)
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("SkipSpace() error = %v, wantErr %v", err, tt.wantErr)
 			}

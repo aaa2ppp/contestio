@@ -7,7 +7,7 @@ import (
 // ErrTokenTooLong возвращается, если считываемый токен превышает размер внутреннего буфера.
 var ErrTokenTooLong = errors.New("token too long")
 
-func nextToken(br *Reader) ([]byte, error) {
+func _nextToken(br *Reader) ([]byte, error) {
 	var buf []byte
 	var err error
 	i := 0
@@ -27,7 +27,7 @@ func nextToken(br *Reader) ([]byte, error) {
 		}
 		buf = buf[:br.Buffered()]
 		for ; i < len(buf); i++ {
-			if isSpace(buf[i]) {
+			if _isSpace(buf[i]) {
 				_, _ = br.Discard(i)
 				return buf[:i], nil
 			}
@@ -41,16 +41,16 @@ func nextToken(br *Reader) ([]byte, error) {
 // EOL сигнализирует, что прочитан конец строки (аналогично io.EOF для конца файла)
 var EOL = errors.New("EOL")
 
-var spaceTab = [256]bool{
+var _spaceTab = [256]bool{
 	' ':  true,
 	'\t': true,
 	'\r': true,
 	'\n': true,
 }
 
-func isSpace(c byte) bool { return spaceTab[c] }
+func _isSpace(c byte) bool { return _spaceTab[c] }
 
-func skipSpace(br *Reader, stopAtEol bool) error {
+func _skipSpace(br *Reader, stopAtEol bool) error {
 	var buf []byte
 	var err error
 	fast := br.Buffered() > 0
@@ -72,7 +72,7 @@ func skipSpace(br *Reader, stopAtEol bool) error {
 				_, _ = br.Discard(i + 1)
 				return EOL
 			}
-			if !isSpace(c) {
+			if !_isSpace(c) {
 				_, _ = br.Discard(i)
 				return nil
 			}
@@ -82,7 +82,7 @@ func skipSpace(br *Reader, stopAtEol bool) error {
 	}
 }
 
-func skipToNewLine(br *Reader) error {
+func _skipToNewLine(br *Reader) error {
 	var buf []byte
 	var err error
 	fast := br.Buffered() > 0

@@ -19,7 +19,7 @@ type IntError struct {
 func (e *IntError) Error() string { return "parseInt: " + strconv.Quote(e.Num) + ": " + e.Err.Error() }
 func (e *IntError) Unwrap() error { return e.Err }
 
-func parseInt[T Int](token []byte) (T, error) {
+func _parseInt[T Int](token []byte) (T, error) {
 	var unsigned = ^T(0) >= 0 // true for unsigned T
 
 	orig := token
@@ -52,7 +52,7 @@ func parseInt[T Int](token []byte) (T, error) {
 		}
 	} else {
 		var err error
-		u64, err = strconv.ParseUint(unsafeString(token), 10, 64)
+		u64, err = strconv.ParseUint(_unsafeString(token), 10, 64)
 		if err != nil {
 			if numErr, ok := err.(*strconv.NumError); ok {
 				return 0, &IntError{string(orig), numErr.Err}
@@ -83,9 +83,9 @@ func parseInt[T Int](token []byte) (T, error) {
 	}
 	return T(u64), nil
 }
-func parseIntToPtr[T Int](token []byte, p *T) error { return parseToPtr(token, parseInt, p) }
+func _parseIntToPtr[T Int](token []byte, p *T) error { return _parseToPtr(token, _parseInt, p) }
 
-func appendInt[T Int](buf []byte, v T) []byte {
+func _appendInt[T Int](buf []byte, v T) []byte {
 	signed := ^T(0) < 0
 	if signed {
 		return strconv.AppendInt(buf, int64(v), 10)
@@ -93,52 +93,52 @@ func appendInt[T Int](buf []byte, v T) []byte {
 		return strconv.AppendUint(buf, uint64(v), 10)
 	}
 }
-func printInt[T Int](bw *Writer, v T) error { return writeAppendFunc(bw, appendInt[T], v) }
+func _printInt[T Int](bw *Writer, v T) error { return _writeAppendFunc(bw, _appendInt[T], v) }
 
-var _ parseFunc[int] = parseInt[int]
-var _ parseToFunc[*int] = parseIntToPtr[int]
-var _ appendValFunc[int] = appendInt[int]
-var _ printValFunc[int] = printInt[int]
+var _ _parseFunc[int] = _parseInt[int]
+var _ _parseToFunc[*int] = _parseIntToPtr[int]
+var _ _appendValFunc[int] = _appendInt[int]
+var _ _printValFunc[int] = _printInt[int]
 
 // ScanInt считывает одно или несколько целых чисел из br и сохраняет их по указателям a.
 // Возвращает количество считанных чисел и ошибку.
 func ScanInt[S []*T, T Int](br *Reader, a ...*T) (int, error) {
-	return scanVars(br, parseIntToPtr, a...)
+	return _scanVars(br, _parseIntToPtr, a...)
 }
 
 // ScanIntLn считывает одно или несколько целых чисел из текущей строки и сохраняет их по
 // указателям a. Пропускает оставшуюся часть строки до конца. Возвращает количество считанных
 // чисел и ошибку.
-func ScanIntLn[T Int](br *Reader, a ...*T) (int, error) { return scanVarsLn(br, parseIntToPtr, a...) }
+func ScanIntLn[T Int](br *Reader, a ...*T) (int, error) { return _scanVarsLn(br, _parseIntToPtr, a...) }
 
 // ScanInts считывает последовательность целых чисел из br в слайс a.
 // Возвращает количество успешно считанных элементов и первую ошибку.
-func ScanInts[T Int](br *Reader, a []T) (int, error) { return scanSlice(br, parseInt, a) }
+func ScanInts[T Int](br *Reader, a []T) (int, error) { return _scanSlice(br, _parseInt, a) }
 
 // ScanIntsLn считывает целые числа из текущей строки до её конца и добавляет их в слайс a.
 // Возвращает итоговый слайс и ошибку (может быть io.EOF).
-func ScanIntsLn[S ~[]T, T Int](br *Reader, a S) (S, error) { return scanSliceLn(br, parseInt, a) }
+func ScanIntsLn[S ~[]T, T Int](br *Reader, a S) (S, error) { return _scanSliceLn(br, _parseInt, a) }
 
 // PrintInt выводит одно или несколько целых чисел a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintInt[T Int](bw *Writer, op WO, a ...T) (int, error) {
-	return printSliceAppend(bw, op, appendInt, a)
+	return _printSliceAppend(bw, op, _appendInt, a)
 }
 
 // PrintIntLn выводит одно или несколько целых чисел a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintIntLn[T Int](bw *Writer, a ...T) (int, error) {
-	return printSliceAppend(bw, lineWO, appendInt, a)
+	return _printSliceAppend(bw, _lineWO, _appendInt, a)
 }
 
 // PrintInts выводит слайс целых чисел a в bw с заданными опциями форматирования.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintInts[T Int](bw *Writer, op WO, a []T) (int, error) {
-	return printSliceAppend(bw, op, appendInt, a)
+	return _printSliceAppend(bw, op, _appendInt, a)
 }
 
 // PrintIntsLn выводит слайс целых чисел a в bw, разделяя пробелами и завершая переводом строки.
 // Возвращает количество выведенных элементов и ошибку.
 func PrintIntsLn[T Int](bw *Writer, a []T) (int, error) {
-	return printSliceAppend(bw, lineWO, appendInt, a)
+	return _printSliceAppend(bw, _lineWO, _appendInt, a)
 }

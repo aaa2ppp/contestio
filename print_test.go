@@ -6,12 +6,12 @@ import (
 )
 
 func Test_printIntSlice(t *testing.T) {
-	sliceWO := writeOpts{Begin: "[]int{", Sep: ", ", End: "}"}
+	sliceWO := _writeOpts{Begin: "[]int{", Sep: ", ", End: "}"}
 
 	tests := []struct {
 		name    string
 		bufSize int
-		op      writeOpts
+		op      _writeOpts
 		a       []int
 		wantOut string
 		wantErr bool
@@ -59,7 +59,7 @@ func Test_printIntSlice(t *testing.T) {
 		{
 			"zero opts",
 			16,
-			writeOpts{},
+			_writeOpts{},
 			[]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
 			"1234567890",
 			false,
@@ -70,7 +70,7 @@ func Test_printIntSlice(t *testing.T) {
 			var out strings.Builder
 			bw := NewWriterSize(&out, tt.bufSize)
 
-			gotN, gotErr := printSliceCommon(bw, tt.op, printInt, tt.a)
+			gotN, gotErr := _printSliceCommon(bw, tt.op, _printInt, tt.a)
 			bw.Flush()
 
 			if gotErr != nil {

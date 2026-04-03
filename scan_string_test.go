@@ -139,7 +139,7 @@ func Test_scanBytes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := NewReader(strings.NewReader(tt.input))
-			got, err := scanBytes(r, tt.delim)
+			got, err := _scanBytes(r, tt.delim)
 
 			if err != tt.wantErr {
 				t.Errorf("ReadBytes() error = %v, wantErr %v", err, tt.wantErr)
@@ -156,7 +156,7 @@ func TestReadBytesMultipleCalls(t *testing.T) {
 	r := NewReader(strings.NewReader(input))
 
 	// Первая строка с \n
-	got, err := scanBytes(r, '\n')
+	got, err := _scanBytes(r, '\n')
 	if err != nil {
 		t.Errorf("first call error: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestReadBytesMultipleCalls(t *testing.T) {
 	}
 
 	// Вторая строка с \n
-	got, err = scanBytes(r, '\n')
+	got, err = _scanBytes(r, '\n')
 	if err != nil {
 		t.Errorf("second call error: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestReadBytesMultipleCalls(t *testing.T) {
 	}
 
 	// Третья строка без завершающего \n (EOF после данных)
-	got, err = scanBytes(r, '\n')
+	got, err = _scanBytes(r, '\n')
 	if err != nil {
 		t.Errorf("third call error: %v, want nil", err)
 	}
@@ -183,7 +183,7 @@ func TestReadBytesMultipleCalls(t *testing.T) {
 	}
 
 	// Четвёртый вызов: уже ничего нет
-	got, err = scanBytes(r, '\n')
+	got, err = _scanBytes(r, '\n')
 	if err != io.EOF {
 		t.Errorf("fourth call error = %v, want io.EOF", err)
 	}
@@ -197,7 +197,7 @@ func TestReadBytesOnlySpacesThenEOF(t *testing.T) {
 	r := NewReader(strings.NewReader(input))
 
 	// Читаем строку с разделителем: после обрезки должно быть пусто
-	got, err := scanBytes(r, '\n')
+	got, err := _scanBytes(r, '\n')
 	if err != nil {
 		t.Errorf("first call error: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestReadBytesOnlySpacesThenEOF(t *testing.T) {
 	}
 
 	// Больше ничего нет
-	got, err = scanBytes(r, '\n')
+	got, err = _scanBytes(r, '\n')
 	if err != io.EOF {
 		t.Errorf("second call error = %v, want io.EOF", err)
 	}
@@ -220,7 +220,7 @@ func TestReadBytesTrailingSpacesAfterDelimiter(t *testing.T) {
 	r := NewReader(strings.NewReader(input))
 
 	// Читаем первую строку с разделителем
-	got, err := scanBytes(r, '\n')
+	got, err := _scanBytes(r, '\n')
 	if err != nil {
 		t.Errorf("first call error: %v", err)
 	}
@@ -229,7 +229,7 @@ func TestReadBytesTrailingSpacesAfterDelimiter(t *testing.T) {
 	}
 
 	// Читаем остаток до конца (разделитель не встретится)
-	got, err = scanBytes(r, '\n')
+	got, err = _scanBytes(r, '\n')
 	if err != nil {
 		t.Errorf("second call error: %v, want nil", err)
 	}
@@ -237,7 +237,7 @@ func TestReadBytesTrailingSpacesAfterDelimiter(t *testing.T) {
 		t.Errorf("second call = %q, want %q", got, "  next")
 	}
 
-	got, err = scanBytes(r, '\n')
+	got, err = _scanBytes(r, '\n')
 	if err != io.EOF {
 		t.Errorf("third call error = %v, want io.EOF", err)
 	}

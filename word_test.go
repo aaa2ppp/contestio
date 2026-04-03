@@ -8,7 +8,7 @@ import (
 func Test_printWordSlice(t *testing.T) {
 	type testCase[T ~string] struct {
 		name    string
-		opts    writeOpts
+		opts    _writeOpts
 		a       []T
 		wantOut string
 		wantN   int
@@ -17,7 +17,7 @@ func Test_printWordSlice(t *testing.T) {
 	tests := []testCase[string]{
 		{
 			name:    "empty slice",
-			opts:    writeOpts{Begin: "[", Sep: ", ", End: "]"},
+			opts:    _writeOpts{Begin: "[", Sep: ", ", End: "]"},
 			a:       []string{},
 			wantOut: "[]",
 			wantN:   0,
@@ -25,7 +25,7 @@ func Test_printWordSlice(t *testing.T) {
 		},
 		{
 			name:    "single element",
-			opts:    writeOpts{Begin: "[", Sep: ", ", End: "]"},
+			opts:    _writeOpts{Begin: "[", Sep: ", ", End: "]"},
 			a:       []string{"foo"},
 			wantOut: "[foo]",
 			wantN:   1,
@@ -33,7 +33,7 @@ func Test_printWordSlice(t *testing.T) {
 		},
 		{
 			name:    "multiple elements",
-			opts:    writeOpts{Begin: "[", Sep: ", ", End: "]"},
+			opts:    _writeOpts{Begin: "[", Sep: ", ", End: "]"},
 			a:       []string{"foo", "bar", "baz"},
 			wantOut: "[foo, bar, baz]",
 			wantN:   3,
@@ -41,7 +41,7 @@ func Test_printWordSlice(t *testing.T) {
 		},
 		{
 			name:    "custom separators",
-			opts:    writeOpts{Begin: "(", Sep: "|", End: ")"},
+			opts:    _writeOpts{Begin: "(", Sep: "|", End: ")"},
 			a:       []string{"foo", "bar", "baz"},
 			wantOut: "(foo|bar|baz)",
 			wantN:   3,
@@ -49,7 +49,7 @@ func Test_printWordSlice(t *testing.T) {
 		},
 		{
 			name:    "empty begin/end",
-			opts:    writeOpts{Begin: "", Sep: ", ", End: ""},
+			opts:    _writeOpts{Begin: "", Sep: ", ", End: ""},
 			a:       []string{"foo", "bar", "baz"},
 			wantOut: "foo, bar, baz",
 			wantN:   3,
@@ -57,7 +57,7 @@ func Test_printWordSlice(t *testing.T) {
 		},
 		{
 			name:    "empty sep",
-			opts:    writeOpts{Begin: "[", Sep: "", End: "]"},
+			opts:    _writeOpts{Begin: "[", Sep: "", End: "]"},
 			a:       []string{"foo", "bar", "baz"},
 			wantOut: "[foobarbaz]",
 			wantN:   3,
@@ -69,7 +69,7 @@ func Test_printWordSlice(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
 			bw := NewWriter(buf)
-			gotN, gotErr := printSliceCommon(bw, tt.opts, printString, tt.a)
+			gotN, gotErr := _printSliceCommon(bw, tt.opts, _printString, tt.a)
 			if gotErr != tt.wantErr {
 				t.Errorf("error = %v, want %v", gotErr, tt.wantErr)
 			}

@@ -10,11 +10,11 @@ import (
 )
 
 func godParser(b []byte) (string, error)    { return string(b), nil }
-func godParserTo(b []byte, p *string) error { return parseToPtr(b, godParser, p) }
+func godParserTo(b []byte, p *string) error { return _parseToPtr(b, godParser, p) }
 
 var parseError = errors.New("parse error")
 
-func badParser(failAt int) parseFunc[string] {
+func badParser(failAt int) _parseFunc[string] {
 	count := 0
 	return func(b []byte) (string, error) {
 		count++
@@ -25,7 +25,7 @@ func badParser(failAt int) parseFunc[string] {
 	}
 }
 
-func badParserTo(failAt int) parseToFunc[*string] {
+func badParserTo(failAt int) _parseToFunc[*string] {
 	count := 0
 	return func(b []byte, p *string) error {
 		count++
@@ -132,7 +132,7 @@ func Test_scanSlice(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			br := NewReader(strings.NewReader(tt.input))
 			gotA := slices.Clone(tt.a)
-			gotN, gotErr := scanSliceCommon(br, tt.parse, gotA)
+			gotN, gotErr := _scanSliceCommon(br, tt.parse, gotA)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanSliceCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}
@@ -281,7 +281,7 @@ func Test_scanSliceLn(t *testing.T) {
 			if tt.a != nil {
 				a = slices.Clone(tt.a)
 			}
-			gotA, gotErr := scanSliceLnCommon(br, tt.parse, a[:tt.n])
+			gotA, gotErr := _scanSliceLnCommon(br, tt.parse, a[:tt.n])
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanSliceLnCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}
@@ -302,7 +302,7 @@ func Test_scanVars(t *testing.T) {
 		name      string
 		input     string
 		stopAtEol bool
-		parse     parseToFunc[*string]
+		parse     _parseToFunc[*string]
 		a         []string
 		wantA     []string
 		wantN     int
@@ -417,7 +417,7 @@ func Test_scanVars(t *testing.T) {
 			for i := range gotA {
 				p[i] = &gotA[i]
 			}
-			gotN, gotErr := scanVarsCommon(br, tt.stopAtEol, tt.parse, p)
+			gotN, gotErr := _scanVarsCommon(br, tt.stopAtEol, tt.parse, p)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanVarsCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}
@@ -435,7 +435,7 @@ func Test_scanVarsLn(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		parse   parseToFunc[*string]
+		parse   _parseToFunc[*string]
 		a       []string
 		wantA   []string
 		wantN   int
@@ -585,7 +585,7 @@ func Test_scanVarsLn(t *testing.T) {
 			for i := range gotA {
 				p[i] = &gotA[i]
 			}
-			gotN, gotErr := scanVarsLn(br, tt.parse, p...)
+			gotN, gotErr := _scanVarsLn(br, tt.parse, p...)
 			if !errors.Is(gotErr, tt.wantErr) {
 				t.Errorf("scanVarsLnCommon() error = %v, want %v", gotErr, tt.wantErr)
 			}

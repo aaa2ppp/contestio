@@ -5,10 +5,10 @@ import (
 	"io"
 )
 
-type parseFunc[T any] func([]byte) (T, error)
-type parseToFunc[T any] func([]byte, T) error
+type _parseFunc[T any] func([]byte) (T, error)
+type _parseToFunc[T any] func([]byte, T) error
 
-func parseToPtr[T any](token []byte, parse parseFunc[T], p *T) error {
+func _parseToPtr[T any](token []byte, parse _parseFunc[T], p *T) error {
 	v, err := parse(token)
 	if err != nil {
 		return err
@@ -17,9 +17,9 @@ func parseToPtr[T any](token []byte, parse parseFunc[T], p *T) error {
 	return nil
 }
 
-func scanSliceCommon[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
+func _scanSliceCommon[T any](br *Reader, parse _parseFunc[T], a []T) (int, error) {
 	for i := range a {
-		err := skipSpace(br, false) // don't stop at end of line
+		err := _skipSpace(br, false) // don't stop at end of line
 		if err != nil {
 			if err == io.EOF {
 				if i == 0 { // return EOF only if no tokens were read
@@ -30,7 +30,7 @@ func scanSliceCommon[T any](br *Reader, parse parseFunc[T], a []T) (int, error) 
 			return i, err
 		}
 		// success 'skipSpace' ensures that there is at least one non-white character
-		token, err := nextToken(br) // always not empty
+		token, err := _nextToken(br) // always not empty
 		if err != nil && err != io.EOF {
 			return i, err
 		}
@@ -43,10 +43,10 @@ func scanSliceCommon[T any](br *Reader, parse parseFunc[T], a []T) (int, error) 
 	return len(a), nil
 }
 
-func scanSliceLnCommon[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
+func _scanSliceLnCommon[T any](br *Reader, parse _parseFunc[T], a []T) ([]T, error) {
 	n := 0
 	for {
-		err := skipSpace(br, true) // stop at end of line
+		err := _skipSpace(br, true) // stop at end of line
 		if err != nil {
 			if err == EOL {
 				return a, nil
@@ -60,7 +60,7 @@ func scanSliceLnCommon[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error
 			return a, err
 		}
 		// success 'skipSpace' ensures that there is at least one non-white character
-		token, err := nextToken(br) // always not empty
+		token, err := _nextToken(br) // always not empty
 		if err != nil && err != io.EOF {
 			return a, err
 		}
@@ -73,9 +73,9 @@ func scanSliceLnCommon[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error
 	}
 }
 
-func scanVarsCommon[T any](br *Reader, stopAtEol bool, parseTo parseToFunc[T], a []T) (int, error) {
+func _scanVarsCommon[T any](br *Reader, stopAtEol bool, parseTo _parseToFunc[T], a []T) (int, error) {
 	for i := range a {
-		err := skipSpace(br, stopAtEol)
+		err := _skipSpace(br, stopAtEol)
 		if err != nil {
 			if err == io.EOF {
 				if i == 0 { // return EOF only if no tokens were read
@@ -86,7 +86,7 @@ func scanVarsCommon[T any](br *Reader, stopAtEol bool, parseTo parseToFunc[T], a
 			return i, err
 		}
 		// success 'skipSpace' ensures that there is at least one non-white character
-		token, err := nextToken(br) // always not empty
+		token, err := _nextToken(br) // always not empty
 		if err != nil && err != io.EOF {
 			return i, err
 		}
@@ -100,12 +100,12 @@ func scanVarsCommon[T any](br *Reader, stopAtEol bool, parseTo parseToFunc[T], a
 // ErrExpectedEOL возвращается, если не был прочитан ожидаемый конец строки
 var ErrExpectedEOL = errors.New("expected end of line")
 
-func scanVarsLnCommon[T any](br *Reader, parseTo parseToFunc[T], a []T) (int, error) {
-	n, err := scanVarsCommon(br, true, parseTo, a) // scan to end of line
+func _scanVarsLnCommon[T any](br *Reader, parseTo _parseToFunc[T], a []T) (int, error) {
+	n, err := _scanVarsCommon(br, true, parseTo, a) // scan to end of line
 	if err != nil {
 		return n, err
 	}
-	err = skipSpace(br, true) // stop at end of line
+	err = _skipSpace(br, true) // stop at end of line
 	if err != nil {
 		if err == EOL || err == io.EOF { // interpret EOF as end of line
 			return n, nil
@@ -115,18 +115,18 @@ func scanVarsLnCommon[T any](br *Reader, parseTo parseToFunc[T], a []T) (int, er
 	return n, ErrExpectedEOL
 }
 
-func scanSlice[T any](br *Reader, parse parseFunc[T], a []T) (int, error) {
-	return must(scanSliceCommon(br, parse, a))
+func _scanSlice[T any](br *Reader, parse _parseFunc[T], a []T) (int, error) {
+	return _must(_scanSliceCommon(br, parse, a))
 }
 
-func scanSliceLn[T any](br *Reader, parse parseFunc[T], a []T) ([]T, error) {
-	return must(scanSliceLnCommon(br, parse, a))
+func _scanSliceLn[T any](br *Reader, parse _parseFunc[T], a []T) ([]T, error) {
+	return _must(_scanSliceLnCommon(br, parse, a))
 }
 
-func scanVars[T any](br *Reader, parseTo parseToFunc[T], a ...T) (int, error) {
-	return must(scanVarsCommon(br, false, parseTo, a))
+func _scanVars[T any](br *Reader, parseTo _parseToFunc[T], a ...T) (int, error) {
+	return _must(_scanVarsCommon(br, false, parseTo, a))
 }
 
-func scanVarsLn[T any](br *Reader, parseTo parseToFunc[T], a ...T) (int, error) {
-	return must(scanVarsLnCommon(br, parseTo, a))
+func _scanVarsLn[T any](br *Reader, parseTo _parseToFunc[T], a ...T) (int, error) {
+	return _must(_scanVarsLnCommon(br, parseTo, a))
 }

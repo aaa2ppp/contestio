@@ -228,7 +228,7 @@ func TestPrintAny(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		opts      writeOpts
+		opts      _writeOpts
 		args      []any
 		wantN     int
 		wantErr   bool
@@ -237,126 +237,126 @@ func TestPrintAny(t *testing.T) {
 	}{
 		{
 			name:    "empty slice",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{},
 			wantN:   0,
 			wantOut: "\n",
 		},
 		{
 			name:    "single string",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{"hello"},
 			wantN:   1,
 			wantOut: "hello\n",
 		},
 		{
 			name:    "multiple strings",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{"a", "b", "c"},
 			wantN:   3,
 			wantOut: "a b c\n",
 		},
 		{
 			name:    "integers",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{42, -7, 0},
 			wantN:   3,
 			wantOut: "42 -7 0\n",
 		},
 		{
 			name:    "unsigned integers",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{uint(10), uint8(255), uint64(100500)},
 			wantN:   3,
 			wantOut: "10 255 100500\n",
 		},
 		{
 			name:    "floats",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{3.14, -0.5, 0.0},
 			wantN:   3,
 			wantOut: "3.14 -0.5 0\n",
 		},
 		{
 			name:    "mixed types",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{"answer", 42, 3.14},
 			wantN:   3,
 			wantOut: "answer 42 3.14\n",
 		},
 		{
 			name:    "pointers to mixed types",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    func() []any { s := "answer"; i := 42; f := 3.14; return []any{&s, &i, &f} }(),
 			wantN:   3,
 			wantOut: "answer 42 3.14\n",
 		},
 		{
 			name:    "custom separator and brackets",
-			opts:    writeOpts{Begin: "[", Sep: ",", End: "]"},
+			opts:    _writeOpts{Begin: "[", Sep: ",", End: "]"},
 			args:    []any{1, 2, 3},
 			wantN:   3,
 			wantOut: "[1,2,3]",
 		},
 		{
 			name:    "empty begin and end",
-			opts:    writeOpts{Begin: "", Sep: ",", End: ""},
+			opts:    _writeOpts{Begin: "", Sep: ",", End: ""},
 			args:    []any{"x", "y"},
 			wantN:   2,
 			wantOut: "x,y",
 		},
 		{
 			name:    "only separator",
-			opts:    writeOpts{Begin: "", Sep: "|", End: ""},
+			opts:    _writeOpts{Begin: "", Sep: "|", End: ""},
 			args:    []any{1, 2, 3},
 			wantN:   3,
 			wantOut: "1|2|3",
 		},
 		{
 			name:    "single element with brackets",
-			opts:    writeOpts{Begin: "(", Sep: ",", End: ")"},
+			opts:    _writeOpts{Begin: "(", Sep: ",", End: ")"},
 			args:    []any{42},
 			wantN:   1,
 			wantOut: "(42)",
 		},
 		{
 			name:    "unsupported type bool",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{true},
 			wantN:   0,
 			wantErr: true,
 		},
 		{
 			name:    "unsupported type struct",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{struct{}{}},
 			wantN:   0,
 			wantErr: true,
 		},
 		{
 			name:    "unsupported type in the middle",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{1, struct{}{}, 2},
 			wantN:   1,
 			wantErr: true,
 		},
 		{
 			name:    "unsupported type slice",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{[]int{1, 2}},
 			wantN:   0,
 			wantErr: true,
 		},
 		{
 			name:    "unsupported type map",
-			opts:    lineWO,
+			opts:    _lineWO,
 			args:    []any{map[string]int{}},
 			wantN:   0,
 			wantErr: true,
 		},
 		{
 			name:      "untyped nil",
-			opts:      lineWO,
+			opts:      _lineWO,
 			args:      []any{nil},
 			wantN:     0,
 			wantErr:   true,
@@ -364,7 +364,7 @@ func TestPrintAny(t *testing.T) {
 		},
 		{
 			name:      "typed nil pointer",
-			opts:      lineWO,
+			opts:      _lineWO,
 			args:      []any{(*int)(nil)},
 			wantN:     0,
 			wantErr:   true,
@@ -372,7 +372,7 @@ func TestPrintAny(t *testing.T) {
 		},
 	}
 
-	catchPanic := func(fn func(*Writer, writeOpts, ...any) (int, error), w *Writer, opts writeOpts, a ...any) (_ int, err error) {
+	catchPanic := func(fn func(*Writer, _writeOpts, ...any) (int, error), w *Writer, opts _writeOpts, a ...any) (_ int, err error) {
 		defer func() {
 			if p := recover(); p != nil {
 				err = fmt.Errorf("%w: %v", panicErr, p)
@@ -482,7 +482,7 @@ func test_scanPrintAnyWord_bulk[T ~string](t *testing.T) {
 	rand := rand.New(rand.NewSource(1))
 	nums := generateFloats[float64](rand, N)
 	input := makeFloatsInput(nil, nums, 1)
-	words := strings.Fields(unsafeString(input))
+	words := strings.Fields(_unsafeString(input))
 
 	t.Run("scan", func(t *testing.T) {
 		res := make([]T, len(nums))
@@ -603,7 +603,7 @@ func BenchmarkPrintAnyVal(b *testing.B) {
 			var v1, v2, v3 int
 			for j := 0; j+3 < len(nums); j += 3 {
 				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
-				if n, err := PrintAny(w, lineWO, v1, v2, v3); err != nil {
+				if n, err := PrintAny(w, _lineWO, v1, v2, v3); err != nil {
 					b.Fatalf("PrintAny: %d, %v", n, err)
 				}
 			}
@@ -619,7 +619,7 @@ func BenchmarkPrintAnyVal(b *testing.B) {
 			var v1, v2, v3 float64
 			for j := 0; j+3 < len(nums); j += 3 {
 				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
-				if n, err := PrintAny(w, lineWO, v1, v2, v3); err != nil {
+				if n, err := PrintAny(w, _lineWO, v1, v2, v3); err != nil {
 					b.Fatalf("PrintAny: %d, %v", n, err)
 				}
 			}
@@ -629,14 +629,14 @@ func BenchmarkPrintAnyVal(b *testing.B) {
 	b.Run("String", func(b *testing.B) {
 		rand := rand.New(rand.NewSource(1))
 		nums := generateFloats[float64](rand, N)
-		words := strings.Fields(unsafeString(makeFloatsInput(rand, nums, 1)))
+		words := strings.Fields(_unsafeString(makeFloatsInput(rand, nums, 1)))
 		w := NewWriter(io.Discard)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			var v1, v2, v3 string
 			for j := 0; j+3 < len(words); j += 3 {
 				v1, v2, v3 = words[j], words[j+1], words[j+2]
-				if n, err := PrintAny(w, lineWO, v1, v2, v3); err != nil {
+				if n, err := PrintAny(w, _lineWO, v1, v2, v3); err != nil {
 					b.Fatalf("PrintAny: %d, %v", n, err)
 				}
 			}
@@ -656,7 +656,7 @@ func BenchmarkPrintAnyPtr(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j+3 < len(nums); j += 3 {
 				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
-				if n, err := PrintAny(w, lineWO, &v1, &v2, &v3); err != nil {
+				if n, err := PrintAny(w, _lineWO, &v1, &v2, &v3); err != nil {
 					b.Fatalf("PrintAny: %d, %v", n, err)
 				}
 			}
@@ -672,7 +672,7 @@ func BenchmarkPrintAnyPtr(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j+3 < len(nums); j += 3 {
 				v1, v2, v3 = nums[j], nums[j+1], nums[j+2]
-				if n, err := PrintAny(w, lineWO, &v1, &v2, &v3); err != nil {
+				if n, err := PrintAny(w, _lineWO, &v1, &v2, &v3); err != nil {
 					b.Fatalf("PrintAny: %d, %v", n, err)
 				}
 			}
@@ -692,7 +692,7 @@ func BenchmarkPrintAnyPtr(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for j := 0; j+3 < len(words); j += 3 {
 				v1, v2, v3 = words[j], words[j+1], words[j+2]
-				if n, err := PrintAny(w, lineWO, &v1, &v2, &v3); err != nil {
+				if n, err := PrintAny(w, _lineWO, &v1, &v2, &v3); err != nil {
 					b.Fatalf("PrintAny: %d, %v", n, err)
 				}
 			}

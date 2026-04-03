@@ -30,10 +30,10 @@ func checkGetAnyPointer[T comparable](t *testing.T, val T) {
 	anyPtr := any(&val)
 	anyVal := any(val)
 
-	if gotPtr := getAnyPointer[T](anyPtr); gotPtr != &val {
+	if gotPtr := _getAnyPointer[T](anyPtr); gotPtr != &val {
 		t.Errorf("getAnyPointer: fail get pointer for type %T: gotPtr = %p, want %p", val, gotPtr, &val)
 	}
-	if gotVal := *getAnyPointer[T](anyVal); gotVal != val {
+	if gotVal := *_getAnyPointer[T](anyVal); gotVal != val {
 		t.Errorf("getAnyPointer: fail get value for type %T: gotVal = %val, want %val", val, gotVal, val)
 	}
 }

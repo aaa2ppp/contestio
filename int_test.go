@@ -237,25 +237,25 @@ func Test_parseInt(t *testing.T) {
 	test_parseInt(t, func(expected any) parserFunc {
 		switch expected.(type) {
 		case int:
-			return func(b []byte) (any, error) { return parseInt[int](b) }
+			return func(b []byte) (any, error) { return _parseInt[int](b) }
 		case int8:
-			return func(b []byte) (any, error) { return parseInt[int8](b) }
+			return func(b []byte) (any, error) { return _parseInt[int8](b) }
 		case int16:
-			return func(b []byte) (any, error) { return parseInt[int16](b) }
+			return func(b []byte) (any, error) { return _parseInt[int16](b) }
 		case int32:
-			return func(b []byte) (any, error) { return parseInt[int32](b) }
+			return func(b []byte) (any, error) { return _parseInt[int32](b) }
 		case int64:
-			return func(b []byte) (any, error) { return parseInt[int64](b) }
+			return func(b []byte) (any, error) { return _parseInt[int64](b) }
 		case uint:
-			return func(b []byte) (any, error) { return parseInt[uint](b) }
+			return func(b []byte) (any, error) { return _parseInt[uint](b) }
 		case uint8:
-			return func(b []byte) (any, error) { return parseInt[uint8](b) }
+			return func(b []byte) (any, error) { return _parseInt[uint8](b) }
 		case uint16:
-			return func(b []byte) (any, error) { return parseInt[uint16](b) }
+			return func(b []byte) (any, error) { return _parseInt[uint16](b) }
 		case uint32:
-			return func(b []byte) (any, error) { return parseInt[uint32](b) }
+			return func(b []byte) (any, error) { return _parseInt[uint32](b) }
 		case uint64:
-			return func(b []byte) (any, error) { return parseInt[uint64](b) }
+			return func(b []byte) (any, error) { return _parseInt[uint64](b) }
 		default:
 			panic("unsupported type")
 		}
@@ -273,7 +273,7 @@ func benchmark_parseInt(b *testing.B, generateTokens func(*rand.Rand, int) [][]b
 	b.Run("strconv.Atoi", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, token := range tokens {
-				v, _ := strconv.Atoi(unsafeString(token))
+				v, _ := strconv.Atoi(_unsafeString(token))
 				parseIntRes = int64(v)
 			}
 		}
@@ -282,7 +282,7 @@ func benchmark_parseInt(b *testing.B, generateTokens func(*rand.Rand, int) [][]b
 	b.Run("parseInt", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, token := range tokens {
-				parseIntRes, _ = parseInt[int64](token)
+				parseIntRes, _ = _parseInt[int64](token)
 			}
 		}
 	})
@@ -362,7 +362,7 @@ func fuzz_parseInt[T Int](f *testing.F) {
 			err error
 		)
 		for _, token := range tokens {
-			v, err = parseInt[T](token)
+			v, err = _parseInt[T](token)
 			if err != nil {
 				t.Fatalf("std: %v", err)
 			}
@@ -421,7 +421,7 @@ func Benchmark_parseInt_boundaries(b *testing.B) {
 		})
 		b.Run(string(c), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				parseIntRes, _ = parseInt[int64](c)
+				parseIntRes, _ = _parseInt[int64](c)
 			}
 		})
 	}
@@ -442,7 +442,7 @@ func Benchmark_scanSlice(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			scanSlice(br, parseIntStd, res)
+			_scanSlice(br, parseIntStd, res)
 		}
 	})
 	b.Run("parseIntAtoi", func(b *testing.B) {
@@ -452,7 +452,7 @@ func Benchmark_scanSlice(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			scanSlice(br, func(b []byte) (int, error) { return strconv.Atoi(unsafeString(b)) }, res)
+			_scanSlice(br, func(b []byte) (int, error) { return strconv.Atoi(_unsafeString(b)) }, res)
 		}
 	})
 	b.Run("parseInt", func(b *testing.B) {
@@ -462,7 +462,7 @@ func Benchmark_scanSlice(b *testing.B) {
 			res := memory[:N]
 			b.StartTimer()
 
-			scanSlice(br, parseInt, res)
+			_scanSlice(br, _parseInt, res)
 		}
 	})
 }

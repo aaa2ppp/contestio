@@ -19,11 +19,11 @@ type Parser[S ~[]T, T any] interface {
 }
 
 func ScanSlice[S ~[]T, T any](br *Reader, a Parser[S, T]) (int, error) {
-	return scanSlice(br, a.Parse, a.Slice())
+	return _scanSlice(br, a.Parse, a.Slice())
 }
 
 func ScanSliceLn[S ~[]T, T any](br *Reader, a Parser[S, T]) (S, error) {
-	return scanSliceLn(br, a.Parse, a.Slice())
+	return _scanSliceLn(br, a.Parse, a.Slice())
 }
 
 type Printer[S ~[]T, T any] interface {
@@ -32,9 +32,9 @@ type Printer[S ~[]T, T any] interface {
 }
 
 func PrintSlice[S ~[]T, T any](bw *Writer, op WO, a Printer[S, T]) (int, error) {
-	return printSlice(bw, op, a.Print, a.Slice())
+	return _printSlice(bw, op, a.Print, a.Slice())
 }
 
 func PrintSliceLn[S ~[]T, T any](bw *Writer, a Printer[S, T]) (int, error) {
-	return printSlice(bw, lineWO, a.Print, a.Slice())
+	return _printSlice(bw, _lineWO, a.Print, a.Slice())
 }
