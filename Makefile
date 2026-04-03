@@ -8,6 +8,7 @@ GOEXE := $(shell go env GOEXE)
 TAGS ?= dev,sugar,any
 
 MERGE_FILES ?= Makefile go.mod go.sum *.go *.sh *.md *.txt
+MERGE_EXCLUDE ?= ! -name '*_test.go'
 
 # source for merge/patch operations
 SRC ?= .
@@ -113,7 +114,7 @@ MERGE_FIND_EXPR := $(wordlist 2,$(words $(MERGE_FIND_PARTS)),$(MERGE_FIND_PARTS)
 
 merge: ## merge code to one file
 	@mkdir -p $(TMP_DIR)
-	@find $(SRC) -type f ! -path '*/qmail-src/src/*' \( $(MERGE_FIND_EXPR) \) -exec sh -c 'name="{}"; printf "== $${name#./} ==\n\n"; cat $$name; echo' ';' > $(TMP_DIR)/$(DST).code
+	@find $(SRC) -type f $(MERGE_EXCLUDE) \( $(MERGE_FIND_EXPR) \) -exec sh -c 'name="{}"; printf "== $${name#./} ==\n\n"; cat $$name; echo' ';' > $(TMP_DIR)/$(DST).code
 	@echo "Merge saved to $(TMP_DIR)/$(DST).code"	
 	
 
