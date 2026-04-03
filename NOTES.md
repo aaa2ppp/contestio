@@ -52,9 +52,9 @@
 
 - **023 [ ] Add number theory utilities (2026-04-02)**
 
-Library now contains Abs, Gdc and Gdcx under 'math' tag. Consider adding other common mathematical functions missing from std, useful for contests.
+  Library now contains Abs, Gdc and Gdcx under 'math' tag. Consider adding other common mathematical functions missing from std, useful for contests.
 
-**Decision:** Instead of using a build tag, these non-IO utilities will be developed in a separate branch `satellite`. This branch may eventually become its own library or be merged later. The `contestio` core remains focused on IO.
+  **Decision:** Instead of using a build tag, these non-IO utilities will be developed in a separate branch `satellite`. This branch may eventually become its own library or be merged later. The `contestio` core remains focused on IO.
 
 ## Plans
 
