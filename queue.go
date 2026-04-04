@@ -1,47 +1,46 @@
 package contestio
 
 // Stack реализация стека на слайсе.
-type Stack[T any] []T
+type Stack[T any] struct {
+	buf []T
+}
 
 func (s *Stack[T]) Len() int {
-	return len(*s)
+	return len(s.buf)
 }
 
 func (s *Stack[T]) Empty() bool {
-	return len(*s) == 0
+	return len(s.buf) == 0
 }
 
 func (s *Stack[T]) Push(v T) {
-	*s = append(*s, v)
+	s.buf = append(s.buf, v)
 }
 
 func (s *Stack[T]) Top() T {
 	if s.Empty() {
 		panic("stack is empty")
 	}
-	n := len(*s)
-	return (*s)[n-1]
+	n := len(s.buf)
+	return (s.buf)[n-1]
 }
 
 func (s *Stack[T]) Pop() T {
 	if s.Empty() {
 		panic("stack is empty")
 	}
-	old := *s
+	old := s.buf
 	n := len(old)
 	v := old[n-1]
 	var zero T
 	old[n-1] = zero
-	*s = old[:n-1]
+	s.buf = old[:n-1]
 	return v
 }
 
 func (s *Stack[T]) Reset() {
-	if len(*s) == 0 {
-		return
-	}
-	clear(*s)
-	*s = (*s)[:0]
+	clear(s.buf)
+	s.buf = s.buf[:0]
 }
 
 // Queue реализация очереди на двух стеках.
@@ -220,20 +219,20 @@ func (d *Deque[T]) grow(need int) {
 }
 
 // NewStackFrom создаёт стек из существующего слайса, забирая его владение.
-func NewStackFrom[T any](slice []T) Stack[T] {
-    return Stack[T](slice)
+func NewStackFrom[T any](slice []T) *Stack[T] {
+	return &Stack[T]{buf: slice}
 }
 
 // NewQueueFrom создаёт очередь из существующего слайса, забирая его владение.
-func NewQueueFrom[T any](slice []T) Queue[T] {
-    return Queue[T]{input: Stack[T](slice)}
+func NewQueueFrom[T any](slice []T) *Queue[T] {
+	return &Queue[T]{input: Stack[T]{buf: slice}}
 }
 
 // NewDequeFrom создаёт дек из существующего слайса, забирая его владение.
-func NewDequeFrom[T any](slice []T) Deque[T] {
-    return Deque[T]{
-        buf:   slice,
-        front: 0,
-        size:  len(slice),
-    }
+func NewDequeFrom[T any](slice []T) *Deque[T] {
+	return &Deque[T]{
+		buf:   slice,
+		front: 0,
+		size:  len(slice),
+	}
 }
