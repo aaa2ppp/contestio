@@ -202,18 +202,25 @@ func (d *Deque[T]) Grow(n int) {
 	}
 }
 
+// grow ВСЕГДА перевыделяет буфер, увеличивая его ёмкость.
+// Вызывать ТОЛЬКО когда точно известно, что текущего свободного места недостаточно.
+// Публичный метод Grow содержит необходимую проверку и вызывает grow только при необходимости.
 func (d *Deque[T]) grow(need int) {
-	oldCap := len(d.buf)
-	newCap := oldCap * 2
-	if newCap < d.size+need {
-		newCap = d.size + need
+	if len(d.buf) == 0 {
+		d.buf = make([]T, max(need, 16))
+		return
 	}
-	if newCap == 0 {
-		newCap = 16
-	}
+
+	newCap := max(len(d.buf)*2, d.size+need)
 	newBuf := make([]T, newCap)
-	copy(newBuf, d.buf[d.front:])
-	copy(newBuf[oldCap-d.front:], d.buf[:d.front])
+
+	if d.front+d.size <= len(d.buf) {
+		copy(newBuf, d.buf[d.front:d.front+d.size])
+	} else {
+		n := copy(newBuf, d.buf[d.front:])
+		copy(newBuf[n:], d.buf[:d.size-n])
+	}
+
 	d.buf = newBuf
 	d.front = 0
 }
