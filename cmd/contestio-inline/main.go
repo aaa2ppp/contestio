@@ -40,6 +40,8 @@ func main() {
 	}
 }
 
+var debug bool
+
 func run(args []string) error {
 	log.SetFlags(0)
 
@@ -48,6 +50,7 @@ func run(args []string) error {
 	var buildTags string
 	var noBuildCheck bool
 
+	fs.BoolVar(&debug, "debug", false, "вывести отладочную информацию")
 	fs.BoolVar(&clear, "clear", false, "удалить встроенный код библиотеки")
 	fs.BoolVar(&noBuildCheck, "no-build-check", false, "отключить проверку компиляции")
 	fs.StringVar(&buildTags, "tags", "", "теги сборки (см. go help build)")
@@ -488,264 +491,118 @@ func findRootObjectsInMain(pkg *packages.Package, libPkgPath string) map[string]
 // Этап 2: извлечение зависимостей из пакета contestio
 // ---------------------------------------------------------------------
 
-// extractDependencies строит граф зависимостей между его объектами,
-// находит все объекты, достижимые из корневых (rootNames), и возвращает их.
-func extractDependencies(pkg *packages.Package, rootNames map[string]bool) map[ast.Node]bool {
-	// -------------------------------------------------------------
-	// Шаг 1: построение графа зависимостей и карты объявлений
-	// -------------------------------------------------------------
-	deps, declOf := buildGraph(pkg)
-
-	// -------------------------------------------------------------
-	// Шаг 2: поиск корневых объектов (экспортированные имена из rootNames)
-	// -------------------------------------------------------------
-	scope := pkg.Types.Scope()
-	var roots []types.Object
-	for _, name := range scope.Names() {
-		obj := scope.Lookup(name)
-		if obj.Exported() && rootNames[obj.Name()] {
-			roots = append(roots, obj)
-		}
-	}
-	if len(roots) == 0 {
-		return nil
-	}
-
-	// -------------------------------------------------------------
-	// Шаг 3: обход графа в ширину от корней
-	// -------------------------------------------------------------
-	visited := bfs(roots, deps)
-
-	// -------------------------------------------------------------
-	// Шаг 4: принудительно добавляем все методы для типов, попавших в visited
-	// -------------------------------------------------------------
-	addAllMethods(visited, pkg.Types)
-
-	// -------------------------------------------------------------
-	// Шаг 5: фильтрация – оставляем только глобальные объекты (принадлежащие пакету или методы)
-	// -------------------------------------------------------------
-	globalVisited := filterGlobal(visited, scope)
-
-	// -------------------------------------------------------------
-	// Шаг 6: сбор уникальных узлов AST для вывода
-	// -------------------------------------------------------------
-	declNodeSet := collectDeclarations(globalVisited, declOf)
-
-	return declNodeSet
+// extractDependencies находит определения все объектов, достижимых из targetNames, и возвращает их.
+func extractDependencies(pkg *packages.Package, targetNames map[string]bool) map[ast.Node]bool {
+	globObjs := getGlobalObjects(pkg)
+	nodes := getDependencies(pkg, globObjs, targetNames)
+	return nodes
 }
 
-// ---------------------------------------------------------------------
-// Вспомогательные функции для построения графа и обхода
-// ---------------------------------------------------------------------
-
-// buildGraph обходит AST пакета, собирает информацию:
-//   - deps[obj] — множество объектов, от которых зависит obj (через использования идентификаторов)
-//   - declOf[obj] — узел объявления верхнего уровня (FuncDecl или GenDecl), где определён obj
-//
-// При обходе отслеживается текущий объект-владелец (owner), чтобы правильно связывать использования.
-func buildGraph(pkg *packages.Package) (deps map[types.Object]map[types.Object]bool, declOf map[types.Object]ast.Node) {
-	deps = make(map[types.Object]map[types.Object]bool)
-	declOf = make(map[types.Object]ast.Node)
-
-	// Для каждого файла в пакете
+// getGlobalObjects находит все глобальные объекты пакета со ссылками на их определения
+func getGlobalObjects(pkg *packages.Package) map[types.Object]ast.Node {
+	objs := make(map[types.Object]ast.Node)
 	for _, file := range pkg.Syntax {
-		// Рекурсивный обход с параметром owner (текущий определяемый объект)
-		var visit func(n ast.Node, owner types.Object)
-		visit = func(n ast.Node, owner types.Object) {
-			if n == nil {
-				return
-			}
-
+		ast.Inspect(file, func(n ast.Node) bool {
 			switch node := n.(type) {
-			// Обработка объявления функции или метода
+			case *ast.File:
+				return true
 			case *ast.FuncDecl:
-				obj := pkg.TypesInfo.Defs[node.Name]
-				if obj != nil && obj.Pkg() == pkg.Types {
-					declOf[obj] = node // сохраняем узел объявления
-					// Обрабатываем ресивер, параметры и тело с новым владельцем obj
-					if node.Recv != nil {
-						visit(node.Recv, obj)
-					}
-					if node.Type != nil {
-						visit(node.Type, obj)
-					}
-					if node.Body != nil {
-						visit(node.Body, obj)
-					}
+				if obj := pkg.TypesInfo.Defs[node.Name]; obj != nil {
+					objs[obj] = node
 				}
-				return // избегаем повторного обхода через общий код
-
-			// Обработка общих объявлений (type, var, const)
 			case *ast.GenDecl:
-				// Определяем, является ли объявление глобальным (owner == nil)
-				isGlobal := owner == nil
-				for _, spec := range node.Specs {
-					switch spec := spec.(type) {
-					case *ast.TypeSpec:
-						obj := pkg.TypesInfo.Defs[spec.Name]
-						if obj != nil && obj.Pkg() == pkg.Types {
-							if isGlobal {
-								declOf[obj] = node // сохраняем для глобального типа
-							}
-							if spec.Type != nil {
-								visit(spec.Type, obj) // обрабатываем тип с владельцем obj
-							}
-						}
-					case *ast.ValueSpec:
-						// В одной спецификации может быть несколько имён (var x, y int)
-						for _, name := range spec.Names {
-							obj := pkg.TypesInfo.Defs[name]
-							if obj != nil && obj.Pkg() == pkg.Types {
-								if isGlobal {
-									declOf[obj] = node // сохраняем для глобальной переменной/константы
-								}
-								// Обрабатываем тип и значения для каждого имени отдельно,
-								// чтобы зависимости привязывались к конкретному объекту
-								if spec.Type != nil {
-									visit(spec.Type, obj)
-								}
-								for _, val := range spec.Values {
-									if val != nil {
-										visit(val, obj)
-									}
-								}
+				switch node.Tok {
+				case token.TYPE:
+					for _, spec := range node.Specs {
+						if s, ok := spec.(*ast.TypeSpec); ok {
+							if obj := pkg.TypesInfo.Defs[s.Name]; obj != nil {
+								objs[obj] = node
 							}
 						}
 					}
-				}
-				return
-
-			// Обработка идентификатора – регистрируем использование
-			case *ast.Ident:
-				if obj := pkg.TypesInfo.Uses[node]; obj != nil && obj.Pkg() == pkg.Types {
-					if owner != nil {
-						if deps[owner] == nil {
-							deps[owner] = make(map[types.Object]bool)
+				case token.VAR, token.CONST:
+					for _, spec := range node.Specs {
+						if s, ok := spec.(*ast.ValueSpec); ok {
+							for _, name := range s.Names {
+								if obj := pkg.TypesInfo.Defs[name]; obj != nil {
+									objs[obj] = node
+								}
+							}
 						}
-						deps[owner][obj] = true
 					}
 				}
 			}
+			return false
+		})
+	}
+	return objs
+}
 
-			// Рекурсивно обходим дочерние узлы с тем же владельцем
-			ast.Inspect(n, func(child ast.Node) bool {
-				if child != nil && child != n {
-					visit(child, owner)
-				}
-				return true
-			})
+// getDependencies находит все глобальные определения от которых зависят targetNames
+func getDependencies(pkg *packages.Package, globObjs map[types.Object]ast.Node, targetNames map[string]bool) map[ast.Node]bool {
+	nodes := make(map[ast.Node]bool)
+
+	queue := make([]types.Object, 0, len(targetNames))
+	visited := make(map[types.Object]bool)
+
+	for obj := range globObjs {
+		name := obj.Name()
+		if !targetNames[name] {
+			continue
 		}
-
-		// Начинаем обход файла с владельцем nil
-		visit(file, nil)
+		if debug {
+			log.Println("add " + name)
+		}
+		queue = append(queue, obj)
+		visited[obj] = true
 	}
 
-	// После обработки AST добавляем явные зависимости от типа к его методам.
-	// Это нужно, потому что методы не всегда явно используются в коде,
-	// но они считаются частью типа и должны быть включены.
-	scope := pkg.Types.Scope()
-	for _, name := range scope.Names() {
-		obj := scope.Lookup(name)
+	for len(queue) > 0 {
+		obj := queue[0]
+		queue = queue[1:]
+
+		if debug {
+			log.Println("process " + obj.Name())
+		}
+
 		if typeName, ok := obj.(*types.TypeName); ok {
 			if named, ok := typeName.Type().(*types.Named); ok {
 				for i := 0; i < named.NumMethods(); i++ {
 					method := named.Method(i)
-					if method.Pkg() == pkg.Types {
-						if deps[typeName] == nil {
-							deps[typeName] = make(map[types.Object]bool)
+					if method.Pkg() == pkg.Types && !visited[method] {
+						if debug {
+							log.Println("  add " + method.Name())
 						}
-						deps[typeName][method] = true
+						queue = append(queue, method)
+						visited[method] = true
 					}
 				}
 			}
 		}
-	}
 
-	return deps, declOf
-}
-
-// bfs выполняет обход графа в ширину от стартовых объектов и возвращает множество достижимых.
-func bfs(roots []types.Object, deps map[types.Object]map[types.Object]bool) map[types.Object]bool {
-	visited := make(map[types.Object]bool)
-	queue := append([]types.Object{}, roots...)
-	for len(queue) > 0 {
-		obj := queue[0]
-		queue = queue[1:]
-		if visited[obj] {
+		node := globObjs[obj]
+		if nodes[node] {
 			continue
 		}
-		visited[obj] = true
-		for dep := range deps[obj] {
-			if !visited[dep] {
-				queue = append(queue, dep)
-			}
-		}
-	}
-	return visited
-}
+		nodes[node] = true
 
-// addAllMethods добавляет в visited все методы для каждого типа, уже присутствующего в visited.
-// Это гарантирует, что даже если метод не использовался явно, он будет включён.
-func addAllMethods(visited map[types.Object]bool, pkg *types.Package) {
-	// Сначала соберём все типы из visited
-	typesSet := make(map[*types.TypeName]bool)
-	for obj := range visited {
-		if typeName, ok := obj.(*types.TypeName); ok {
-			typesSet[typeName] = true
-		}
-	}
-	// Для каждого типа добавим все его методы
-	for typeName := range typesSet {
-		if named, ok := typeName.Type().(*types.Named); ok {
-			for i := 0; i < named.NumMethods(); i++ {
-				method := named.Method(i)
-				if method.Pkg() == pkg {
-					visited[method] = true
+		ast.Inspect(node, func(n ast.Node) bool {
+			if ident, ok := n.(*ast.Ident); ok {
+				obj := pkg.TypesInfo.Uses[ident]
+				if obj != nil && !visited[obj] {
+					node := globObjs[obj]
+					if node != nil {
+						if debug {
+							log.Println("  add " + ident.Name)
+						}
+						queue = append(queue, obj)
+						visited[obj] = true
+					}
 				}
 			}
-		}
+			return true
+		})
 	}
-}
 
-// filterGlobal оставляет только объекты, которые являются глобальными в пакете:
-//   - методы (функции с получателем) включаются всегда;
-//   - все остальные объекты включаются только если их областью видимости является пакетный scope.
-//
-// Это отсеивает локальные переменные, константы и типы, объявленные внутри функций.
-func filterGlobal(visited map[types.Object]bool, pkgScope *types.Scope) map[types.Object]bool {
-	global := make(map[types.Object]bool)
-	for obj := range visited {
-		// Проверяем, является ли объект методом
-		if isMethod(obj) {
-			global[obj] = true
-			continue
-		}
-		// Для всех остальных – проверяем принадлежность пакетному scope
-		if obj.Parent() == pkgScope {
-			global[obj] = true
-		}
-	}
-	return global
-}
-
-// isMethod возвращает true, если объект – функция и у неё есть получатель.
-func isMethod(obj types.Object) bool {
-	funcObj, ok := obj.(*types.Func)
-	if !ok {
-		return false
-	}
-	// У методов сигнатура содержит получатель
-	sig := funcObj.Type().(*types.Signature)
-	return sig.Recv() != nil
-}
-
-// collectDeclarations собирает уникальные узлы AST, соответствующие объявлениям объектов.
-func collectDeclarations(objects map[types.Object]bool, declOf map[types.Object]ast.Node) map[ast.Node]bool {
-	nodes := make(map[ast.Node]bool)
-	for obj := range objects {
-		if decl := declOf[obj]; decl != nil {
-			nodes[decl] = true
-		}
-	}
 	return nodes
 }

@@ -58,10 +58,6 @@
 
 ## Plans
 
-- **001 [ ] Refactor `contestio-inline` (2026-03-09)**
-
-  Complex auto-generated parts (e.g. AST traversal) to be clear and maintainable: simplify structure, cover key scenarios with tests.
-
 - **002 [ ] Rework the README (2026-03-09)**
 
   Important: 
@@ -90,6 +86,12 @@
     - Remove `sugar` and `any` build tag; release v0.4.0 with unified I/O support.
 
 ## Made
+
+- **001 [+] Refactor `contestio-inline` (2026-03-09) (made:2026-04-10)**
+
+  Complex auto-generated parts (e.g. AST traversal) to be clear and maintainable: simplify structure, cover key scenarios with tests.
+
+  **Made:** Simplified AST traversal for dependency extraction. Added the -debug flag for debugging.
 
 - **007 [+] Adjust EOF handling in scanXxxLn functions (2026-03-11) (made:2026-03-11)**
 
